@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WorkspaceSettings">
+    <project name="billiard-training-app-fe" path="$PROJECT_DIR$/../../consulbit/internal-projects/billiard-tracker-app/billiard-training-app-fe">
+      <vcs id="Git" remoteUrl="git@github.com:ConsulbitDev/billiard-training-fe.git" />
+    </project>
+    <project name="billiard-training-app-be" path="$PROJECT_DIR$/../../consulbit/internal-projects/billiard-tracker-app/billiard-training-app-be">
+      <vcs id="Git" remoteUrl="git@github.com:ConsulbitDev/billiard-training-be.git" />
+    </project>
+    <project name=".github" path="$PROJECT_DIR$/../../consulbit/internal-projects/billiard-tracker-app/.github">
+      <vcs id="Git" remoteUrl="git@github.com:ConsulbitDev/.github.git" />
+    </project>
+    <option name="workspace" value="true" />
+  </component>
+</project>
