@@ -10,6 +10,7 @@
     <project name=".github" path="$PROJECT_DIR$/../../consulbit/internal-projects/billiard-tracker-app/.github">
       <vcs id="Git" remoteUrl="git@github.com:ConsulbitDev/.github.git" />
     </project>
+    <project name="billiard-analyzer" path="$PROJECT_DIR$/../../consulbit/internal-projects/billiard-tracker-app/billiard-analyzer" />
     <option name="workspace" value="true" />
   </component>
 </project>

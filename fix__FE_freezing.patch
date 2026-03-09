@@ -1,0 +1,1243 @@
+Subject: [PATCH] fix: FE freezing
+---
+Index: ../csi_fe/src/app/modules/pages/dashboard/dashboard.component.html
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_fe/src/app/modules/pages/dashboard/dashboard.component.html b/../csi_fe/src/app/modules/pages/dashboard/dashboard.component.html
+--- a/../csi_fe/src/app/modules/pages/dashboard/dashboard.component.html	(revision 35837d53163007f926fe42b965b5b1f11414bf56)
++++ b/../csi_fe/src/app/modules/pages/dashboard/dashboard.component.html	(date 1762504051751)
+@@ -73,4 +73,4 @@
+       <app-synoptic-view [questionsBySection]="listQuestionDetails"></app-synoptic-view>
+     </mat-expansion-panel>
+   </div>
+-</div>
+\ No newline at end of file
++</div>
+Index: ../csi_be/src/main/resources/application.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>ISO-8859-1
+===================================================================
+diff --git a/../csi_be/src/main/resources/application.properties b/../csi_be/src/main/resources/application.properties
+--- a/../csi_be/src/main/resources/application.properties	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/resources/application.properties	(date 1762455801792)
+@@ -1,2 +1,20 @@
+ server.port=8081
+-server.servlet.context-path=/csibe
+\ No newline at end of file
++server.servlet.context-path=/csibe
++
++# Database connection pool
++spring.datasource.hikari.maximum-pool-size=20
++spring.datasource.hikari.minimum-idle=5
++spring.datasource.hikari.connection-timeout=30000
++spring.datasource.hikari.idle-timeout=600000
++spring.datasource.hikari.max-lifetime=1800000
++
++# Tomcat threads
++server.tomcat.threads.max=200
++server.tomcat.threads.min-spare=10
++server.tomcat.max-connections=10000
++server.tomcat.accept-count=100
++
++logging.level.com.zaxxer.hikari=WARN
++logging.level.org.springframework.web=WARN
++logging.level.org.springframework.jdbc=WARN
++logging.level.org.springframework.web.client=WARN
+\ No newline at end of file
+Index: ../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.ts b/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.ts
+--- a/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.ts	(revision 35837d53163007f926fe42b965b5b1f11414bf56)
++++ b/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.ts	(date 1762514266839)
+@@ -1,7 +1,14 @@
+ import {Component, Inject, OnDestroy, OnInit} from '@angular/core';
+ import {CommonModule} from '@angular/common';
+ import {SharedModule} from '../../../shared/modules/shared.module';
+-import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
++import {
++  AbstractControl,
++  FormBuilder,
++  ReactiveFormsModule,
++  ValidationErrors,
++  ValidatorFn,
++  Validators
++} from '@angular/forms';
+ import {FiltersService} from "../../../shared/components/filters/services/filters.service";
+ import {BehaviorSubject, firstValueFrom, Subscription} from "rxjs";
+ import {Brand} from "../../../shared/models/brand";
+@@ -11,25 +18,23 @@
+ import {Role} from "../../../shared/enums/role";
+ import {MeUser} from "../../../shared/models/me-user";
+ import {FiltersApiService} from "../../../shared/components/filters/services/filters.api.service";
+-import {HttpClient} from "@angular/common/http";
++import {HttpClient, HttpEventType, HttpRequest, HttpResponse} from "@angular/common/http";
+ import {environment} from "../../../../environments/environment";
+-import { MatDialog, MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
++import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+ import {MatButtonModule} from "@angular/material/button";
+ import {TranslateModule} from "../../../shared/modules/translate.module";
+-import { HttpRequest, HttpEventType, HttpResponse } from '@angular/common/http';
+-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
++import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
++import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
+ 
+ 
+-
+ //survey: PURCHASE o REPAIR
+ //se nelle combo hai 1 solo valore, lo selezioni di default
+-export function keyNotNullValidator(name:string): ValidatorFn {
++export function keyNotNullValidator(name: string): ValidatorFn {
+   return (control: AbstractControl): ValidationErrors | null => {
+     const val = control.value;
+     const key = val && typeof val === 'object' ? val.key : val;
+     if (key === null || key === undefined || key === '') {
+-      return { [name+'Null'] : true };
++      return {[name + 'Null']: true};
+     }
+     return null;
+   };
+@@ -44,46 +49,51 @@
+   survey: string;
+   uploadDate?: Date;
+ }
++
+ @Component({
+   standalone: true,
+   selector: 'app-customer-data-uploader',
+-  imports: [CommonModule, SharedModule, ReactiveFormsModule,MatDialogModule, MatButtonModule],
++  imports: [CommonModule, SharedModule, ReactiveFormsModule, MatDialogModule, MatButtonModule],
+   templateUrl: './customer-data-uploader.component.html',
+   styleUrls: ['./customer-data-uploader.component.scss']
+ })
+-export class CustomerDataUploaderComponent implements OnInit,OnDestroy{
+-  // Form with required selects to match the layout
+-
++export class CustomerDataUploaderComponent implements OnInit, OnDestroy {
+   uploads: UploadRecord[] = [];
+-  displayedColumns: string[] = ['fileName', 'brand', 'market', 'dealer', 'survey','uploadDate'];
++  displayedColumns: string[] = ['fileName', 'brand', 'market', 'dealer', 'survey', 'uploadDate'];
+ 
++  private fileHistorySubscription!: Subscription;
+ 
+   form = this.fb.group({
+     brand: ['', Validators.required],
+-    market: [{key:'',value:''}, [Validators.required, keyNotNullValidator('market')]],
++    market: [{key: '', value: ''}, [Validators.required, keyNotNullValidator('market')]],
+     dealer: [''],
+-    survey: [{key:'',value:''}, [Validators.required, keyNotNullValidator('survey')]],
++    survey: [{key: '', value: ''}, [Validators.required, keyNotNullValidator('survey')]],
+   });
+ 
+   // Placeholder options (replace with real data wiring)
+   brandOptions: Set<string> = new Set();
+-  marketOptions: Set<{ key: string; value: string }> = new Set<{key: string; value: string}>();
+-  dealerOptions : Set<string> = new Set();
+-  surveyOptions = [{key:'Purchase',value:'Purchase'}, {key:'Repair',value:'Repair'}];
++  marketOptions: Set<{ key: string; value: string }> = new Set<{ key: string; value: string }>();
++  dealerOptions: Set<string> = new Set();
++  surveyOptions = [{key: 'Purchase', value: 'Purchase'}, {key: 'Repair', value: 'Repair'}];
+ 
+   selectedFile?: File;
+   uploadMessage = '';
++  uploadMessageSafe?: SafeHtml;
++  dealerEnabled = false;
++  trackByKey = (_: number, o: { key: string }) => o.key;
++  byKey = (a?: { key: string } | null, b?: { key: string } | null) => a?.key === b?.key;
+   filterService: FiltersService;
+   user!: MeUser;
+ 
+-  subscriptions:Set<{ key: string; value: Subscription }> = new Set<{key: string; value: Subscription}>();
++  subscriptions: Set<{ key: string; value: Subscription }> = new Set<{ key: string; value: Subscription }>();
+   brands: Set<Brand> = new Set();
+   selectedBrand: BehaviorSubject<string> = new BehaviorSubject<string>("");
+-  pipe:TranslatePipe;
+-  constructor(private fb: FormBuilder, filterService:FiltersService,
+-              private appService:ApplicationService,
+-              private filterApi:FiltersApiService, private http: HttpClient,private dialog: MatDialog,
+-              private sanitizer: DomSanitizer) {
++  pipe: TranslatePipe;
++
++  constructor(private readonly fb: FormBuilder, filterService: FiltersService,
++              private readonly appService: ApplicationService,
++              private readonly filterApi: FiltersApiService, private readonly http: HttpClient, private readonly dialog: MatDialog,
++              private readonly sanitizer: DomSanitizer) {
+     this.filterService = filterService;
+     this.pipe = new TranslatePipe(this.appService);
+     const lang = this.appService.languageState.subscribe(value => {
+@@ -97,21 +107,14 @@
+ 
+       this.populateFileHistory();
+     })
+-    this.subscriptions.add({key:'lang',value:lang});
++    this.subscriptions.add({key: 'lang', value: lang});
+   }
+ 
+   ngOnInit(): void {
+-
+     const dealerSub = this.filterService.dealersSubject.subscribe(dealer => {
+-      console.log("************DEALER*********");
+-      console.log(dealer);
+-      console.log("******************************");
+     });
+-
+-    this.subscriptions.add({key:'dealerSub',value:dealerSub});
+-
++    this.subscriptions.add({key: 'dealerSub', value: dealerSub});
+     const selectBrandSubscription = this.selectedBrand.subscribe(brand => {
+-      console.log('Selected Brand:', brand);
+       this.user = this.user || this.appService.user.value;
+       this.marketOptions.clear();
+       Array.from(this.brands)
+@@ -121,13 +124,13 @@
+         .flatMap(s => s.markets)
+         .map(market => ({key: market, value: this.pipe.transform(market)}))
+         .sort((a, b) => a.value.localeCompare(b.value))
+-        .filter(market => this.marketOptions.has(market) === false)
++        .filter(market => !this.marketOptions.has(market))
+         .forEach(market => this.marketOptions.add(market));
+-      if(this.marketOptions.size === 1){
++      if (this.marketOptions.size === 1) {
+         this.prefillSingleValues();
+       }
+ 
+-      if(!this.user.dealer) {
++      if (!this.user.dealer) {
+         firstValueFrom(
+           this.filterApi.getDealers(this.user.market, [brand], [], [], this.user.dealerGroup)
+         ).then(dealers => {
+@@ -139,89 +142,71 @@
+       }
+ 
+ 
+-      this.form.patchValue({brand: brand.toString()});
++      this.form.patchValue({brand: brand.toString()}, {emitEvent: false});
+     });
+-
+-    this.subscriptions.add({key:'selectBrandSubscription',value:selectBrandSubscription});
+-
+-
++    this.subscriptions.add({key: 'selectBrandSubscription', value: selectBrandSubscription});
+     const brandSubscription = this.filterService.brands.subscribe(brands => {
+-      console.log(brands);
+       brands.forEach(b => this.brands.add(b));
+       brands.map(b => b.name).forEach(b => this.brandOptions.add(b));
+-      if(this.brandOptions.size === 1){
++      if (this.brandOptions.size === 1) {
+         this.selectedBrand.next(this.brandOptions.values().next().value);
+-      }
+-      else this.prefillSingleValues();
++      } else this.prefillSingleValues();
+     });
+-    this.subscriptions.add({key:'brandSubscription',value:brandSubscription});
+-
++    this.subscriptions.add({key: 'brandSubscription', value: brandSubscription});
+     const appServiceUserSub = this.appService.user.subscribe(user => {
+       this.user = user;
+-      if (user && user.brand) {
++      if (user?.brand) {
+         this.brandOptions.add(user.brand)
+         this.prefillSingleValues();
+       }
+ 
+-      if(user && user.market){
++      if (user?.market) {
+         const value = {key: user.market, value: this.pipe.transform(user.market)};
+-        if(this.marketOptions.size === 0) {
++        if (this.marketOptions.size === 0) {
+           this.marketOptions.add(value);
+         }
+         this.prefillSingleValues();
+       }
+ 
+-      if(user && this.isDealerEnabled()) {
+-        if(user.dealer) {//dealer from profile
++      if (user && this.dealerEnabled) {
++        if (user.dealer) {//dealer from profile
+           this.dealerOptions.add(user.dealer);
+           this.prefillSingleValues(true);
+         }
+ 
+ 
+-
+       }
+     });
+-    this.subscriptions.add({key:'appServiceUserSub',value:appServiceUserSub});
++    this.subscriptions.add({key: 'appServiceUserSub', value: appServiceUserSub});
+     this.populateFileHistory();
+   }
+ 
+-  prefillSingleValues(skipBrandRewrite:boolean = false): void {
+-    if(skipBrandRewrite) {
+-      if(this.brandOptions.size === 1){
+-        this.form.patchValue({ brand: this.brandOptions.values().next().value});
+-      }
+-      else {
+-        this.form.patchValue({ brand: '' });
++  prefillSingleValues(skipBrandRewrite: boolean = false): void {
++    if (skipBrandRewrite) {
++      if (this.brandOptions.size === 1) {
++        this.form.patchValue({brand: this.brandOptions.values().next().value}, {emitEvent: false});
++      } else {
++        this.form.patchValue({brand: ''}, {emitEvent: false});
+       }
+     }
+ 
+-    if(this.marketOptions.size === 1){
+-      this.form.patchValue({ market: this.marketOptions.values().next().value });
+-    }
+-    else {
+-      this.form.patchValue({ market: {key:'',value:''} });
++    if (this.marketOptions.size === 1) {
++      this.form.patchValue({market: this.marketOptions.values().next().value}, {emitEvent: false});
++    } else {
++      this.form.patchValue({market: {key: '', value: ''}}, {emitEvent: false});
+     }
+-    if(this.isDealerEnabled() && this.dealerOptions.size === 1){
+-      this.form.patchValue({ dealer: this.dealerOptions.values().next().value });
++    if (this.dealerEnabled && this.dealerOptions.size === 1) {
++      this.form.patchValue({dealer: this.dealerOptions.values().next().value}, {emitEvent: false});
++    } else {
++      this.form.patchValue({dealer: ''}, {emitEvent: false});
+     }
+-    else {
+-      this.form.patchValue({ dealer: '' });
+-    }
+-  }
+-
+-
+-
+-  ngOnDestroy(): void {
+-    Array.from(this.subscriptions).forEach(m => m.value.unsubscribe());
+-    this.subscriptions.clear();
+   }
+ 
+   onFileSelected(event: Event) {
+     const input = event.target as HTMLInputElement;
+-    const file = input.files && input.files[0];
++    const file = input.files?.[0];
+     if (file) {
+       this.selectedFile = file;
+-      //this.uploadMessage = `${this.pipe.transform("FILE")}: ${file.name}`;
+     }
+   }
+ 
+@@ -236,45 +221,49 @@
+     }
+ 
+     this.dialog.open(UploadResultDialogComponent, {
+-      data: { message: this.pipe.transform("UPLOADER_ALERT_REVIEW") , fallback: () => this.onUploadAfterAlert() },
++      data: {message: this.pipe.transform("UPLOADER_ALERT_REVIEW"), fallback: () => this.onUploadAfterAlert()},
+       width: '400px'
+     });
+   }
+ 
+   populateFileHistory() {
+-    const url = `${environment.csibefrontend}v2/customerDataFiles/${this.user.email}`;
+-    const req = new HttpRequest('GET', url, {
+-      reportProgress: false,
+-      responseType: 'json'
+-    });
+-
+-
+-    this.http.request(req).subscribe({
+-      next: event => {
+-        if (event.type === HttpEventType.Response) {
+-          const resp = event as HttpResponse<any>;
+-          if (resp.status >= 200 && resp.status < 300) {
+-            const body = resp.body;
+-            if(body && Array.isArray(body)){
+-              this.uploads = body.map((item: any) => {
+-                return {
+-                  fileName: item.fileNameOrig,
+-                  brand: item.brand == 'NHAG' ? 'NhAg' : item.brand,
+-                  market: item.market,
+-                  dealer: item.dealerId,
+-                  survey: item.scopeId == 'PURCHASE' ? 'Purchase' : 'Repair',
+-                  uploadDate: new Date(item.dtInsert)
+-                } as UploadRecord;
+-              });
+-            }
+-          }
+-        }
+-      },
+-      error: err => {
+-        const status = err?.status ?? 'unknown';
+-      }
+-    });
++
++    // Unsubscribe first if it exists
++    if (this.fileHistorySubscription) {
++      this.fileHistorySubscription.unsubscribe();
++    }
++
++    if (this.user) {
++      const url = `${environment.csibefrontend}v2/customerDataFiles/${this.user.email}`;
++      const req = new HttpRequest('GET', url, {
++        reportProgress: true,
++        responseType: 'json'
++      });
++      this.fileHistorySubscription = this.http.request(req).subscribe({
++        next: event => {
++          if (event.type === HttpEventType.Response) {
++            const resp = event as HttpResponse<any>;
++            if (resp.status >= 200 && resp.status < 300) {
++              const body = resp.body;
++              if (body && Array.isArray(body)) {
++                this.uploads = body.map((item: any) => {
++                  return {
++                    fileName: item.fileNameOrig,
++                    brand: item.brand == 'NHAG' ? 'NhAg' : item.brand,
++                    market: item.market,
++                    dealer: item.dealerId,
++                    survey: item.scopeId == 'PURCHASE' ? 'Purchase' : 'Repair',
++                    uploadDate: new Date(item.dtInsert)
++                  } as UploadRecord;
++                });
++              }
++            }
++          }
++        }
++      });
++    }
+   }
++
+   onUploadAfterAlert() {
+     if (!this.form.valid) {
+       this.uploadMessage = `${this.pipe.transform("UPLOADER_FILE_FILL_MISSING")}`;
+@@ -284,8 +273,9 @@
+       this.uploadMessage = `${this.pipe.transform("UPLOADER_FILE_INVALID")}`;
+       return;
+     }
+-    // TODO: integrate API call using HttpClient and FormData
++
+     this.uploadMessage = `${this.pipe.transform("UPLOADER_FILE_UPLOADING")} ${this.selectedFile.name}...`;
++
+     const url = `${environment.csibefrontend}v2/uploadCustomerDataFile`;
+     const formData = new FormData();
+     formData.append('brand', this.form.value.brand ?? '');
+@@ -300,92 +290,79 @@
+       reportProgress: false,
+       responseType: 'json'
+     });
+-
+     const loadingRef = this.dialog.open(LoadingDialogComponent, {
+       disableClose: true,
+       width: '400px',
+-      data: { message: '' }
++      data: {message: ''}
+     });
+ 
+-    this.http.request(req).subscribe({
+-      next: event => {
+-        if (event.type === HttpEventType.Response) {
+-          loadingRef.close();
+-          const resp = event as HttpResponse<any>;
+-          if (resp.status >= 200 && resp.status < 300) {
+-            const body = resp.body;
+-            this.uploadMessage = body?.message ?? this.pipe.transform("UPLOADER_FILE_UPLOADED") ?? `Upload OK`;
+-            this.dialog.open(UploadResultDialogComponent, {
+-              data: { message: this.uploadMessage , label: 'Details' },
+-              width: '400px'
+-            });
++    this.http.request(req)
++      .subscribe({
++        next: event => {
++          if (event.type === HttpEventType.Response) {
++            loadingRef.close();
++            const resp = event as HttpResponse<any>;
++            if (resp.status >= 200 && resp.status < 300) {
++              const body = resp.body;
++              this.uploadMessage = body?.message ?? this.pipe.transform("UPLOADER_FILE_UPLOADED") ?? `Upload OK`;
++              this.dialog.open(UploadResultDialogComponent, {
++                data: {message: this.uploadMessage, label: 'Details'},
++                width: '400px'
++              });
+ 
+-
+-            this.populateFileHistory();
+-
+-            this.form.reset();
+-            this.selectedFile = undefined;
+-            this.filterService.brands.next(Array.from(this.brands));
+-
+-
+-          } else {
+-            const errors = resp.body?.errors;
+-            const translation: string[] = [];
+-            if (errors && Array.isArray(errors) && errors.length > 0) {
+-              errors.forEach(e => {
+-                const error = this.pipe.transform(e.code).replaceAll("{{params}}", e.parameters?.toString() ?? '');
+-                translation.push(error);
+-              });
++              this.populateFileHistory();
++              this.form.reset();
++              this.selectedFile = undefined;
++              this.filterService.brands.next(Array.from(this.brands));
+             }
+-            this.uploadMessage = translation.length > 0 ? translation.join('<br>') : this.pipe.transform("UPLOADER_FILE_UPLOAD_ERROR") ?? `Upload failed`;
+-            this.dialog.open(UploadResultDialogComponent, {
+-              data: { message: this.uploadMessage },
+-              width: '400px'
+-            });
+           }
+-        }
+-      },
+-      error: err => {
+-        loadingRef.close();
+-        const status = err?.status ?? 'unknown';
+-        //this.uploadMessage = `${this.pipe.transform("UPLOADER_FILE_UPLOAD_ERROR")} ${status}`;
+-        const errors = err?.error?.errors;
+-        const translation: string[] = [];
+-        if (errors && Array.isArray(errors) && errors.length > 0) {
+-          errors.forEach(e => {
+-            const error = this.pipe.transform(e.code).replaceAll("{{params}}", e.parameters?.toString() ?? '');
+-            translation.push(error);
+-          });
+-        }
+-        this.uploadMessage = translation.length > 0 ? translation.join('<br>') : this.pipe.transform("UPLOADER_FILE_UPLOAD_ERROR") ?? `Upload failed`;
+-
+-        this.dialog.open(UploadResultDialogComponent, {
+-          data: { message: this.uploadMessage },
+-          width: '400px'
+-        });
+-      }
+-    });
++        },
++        error: err => {
++          loadingRef.close();
++          const errors = err?.error?.errors;
++          const translation: string[] = [];
++          if (errors && Array.isArray(errors) && errors.length > 0) {
++            errors.forEach(e => {
++              const error = this.pipe.transform(e.code).replaceAll("{{params}}", e.parameters?.toString() ?? '');
++              translation.push(error);
++            });
++          }
++
++          this.uploadMessage = translation.length > 0 ? translation.join('<br>') : this.pipe.transform("UPLOADER_FILE_UPLOAD_ERROR") ?? `Upload failed`;
++          this.dialog.open(UploadResultDialogComponent, {
++            data: {message: this.uploadMessage},
++            width: '400px'
++          });
++        },
++      });
+   }
+ 
+-  isDealerEnabled(): boolean {
++  setIfDealerEnabled(): void {
+     const currentUser = this.appService.user.value;
+-    const role:Role = currentUser.csiProfile? currentUser.csiProfile : Role.GLOBAL;
+-    return ["dealer", "outlet"]
+-        .filter(entry => {
+-          return role.toLowerCase().includes(entry);
+-        })
+-        .length > 0
++    const role: Role = currentUser.csiProfile ? currentUser.csiProfile : Role.GLOBAL;
++    this.dealerEnabled = ["dealer", "outlet"]
++      .some(entry => {
++        return role.toLowerCase().includes(entry);
++      });
+   }
+ 
+   onBrandChange(event: MatSelectChange) {
+     // Logica da eseguire quando cambia la selezione
+-    console.log('Brand selezionato:', event.value);
+     this.selectedBrand.next(event.value);
+   }
+ 
+-  sanitizedUploadMessage(): SafeHtml {
+-    const sanitizer = this.sanitizer;
+-    return sanitizer.bypassSecurityTrustHtml(this.uploadMessage);
++  private setUploadMessage(html: string) {
++    this.uploadMessage = html;
++    this.uploadMessageSafe = this.sanitizer.bypassSecurityTrustHtml(html);
++  }
++
++  ngOnDestroy(): void {
++    if (this.fileHistorySubscription) {
++      this.fileHistorySubscription.unsubscribe();
++    }
++
++    Array.from(this.subscriptions).forEach(m => m.value.unsubscribe());
++    this.subscriptions.clear();
+   }
+ }
+ 
+@@ -417,10 +394,11 @@
+ export class UploadResultDialogComponent {
+   trustedMessage: SafeHtml = '';
+   label: string = this.data?.label ?? 'ERROR';
++
+   constructor(
+     public dialogRef: MatDialogRef<UploadResultDialogComponent>,
+-    @Inject(MAT_DIALOG_DATA) public data: { message: string,label?: string, fallback?: () => void },
+-    private sanitizer: DomSanitizer
++    @Inject(MAT_DIALOG_DATA) public data: { message: string, label?: string, fallback?: () => void },
++    private readonly sanitizer: DomSanitizer
+   ) {
+     this.trustedMessage = this.sanitizer.bypassSecurityTrustHtml(this.data?.message ?? '');
+   }
+@@ -452,5 +430,6 @@
+   constructor(
+     public dialogRef: MatDialogRef<LoadingDialogComponent>,
+     @Inject(MAT_DIALOG_DATA) public data: { message?: string }
+-  ) {}
++  ) {
++  }
+ }
+Index: ../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayBuilder.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayBuilder.java b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayBuilder.java
+--- a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayBuilder.java	(revision c47585c6249eab60c3cfc0275f210dc67a9251d7)
++++ b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayBuilder.java	(date 1762440899859)
+@@ -54,11 +54,11 @@
+ 		return (T[]) this.array;
+ 	}
+ 
+-	public static synchronized <T> ArrayBuilder<T> getNewBuilder(Class<T> type) {
++	public static <T> ArrayBuilder<T> getNewBuilder(Class<T> type) {
+ 		return new ArrayBuilder<T>(type);
+ 	}
+ 
+-	public static synchronized ArrayBuilder<Object> getNewBuilder() {
++	public static ArrayBuilder<Object> getNewBuilder() {
+ 		return ArrayBuilder.getNewBuilder(Object.class);
+ 	}
+ 
+Index: ../csi_be/src/main/java/it/akronos/csi/be/util/Util.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be/src/main/java/it/akronos/csi/be/util/Util.java b/../csi_be/src/main/java/it/akronos/csi/be/util/Util.java
+--- a/../csi_be/src/main/java/it/akronos/csi/be/util/Util.java	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/java/it/akronos/csi/be/util/Util.java	(date 1762441188496)
+@@ -942,21 +942,21 @@
+ 	    return false;
+ 	}
+ 	
+-	public static synchronized Integer parseToIntegerOrDefault(String s, Integer def) {
++	public static Integer parseToIntegerOrDefault(String s, Integer def) {
+ 		try {
+ 			return Integer.parseInt(s);
+ 		} catch (NumberFormatException IGNORE) { /* do nothing */ }
+ 		return def;
+ 	}
+ 
+-	public static synchronized <T> T getValueOrDefault(T s, T def) {
++	public static <T> T getValueOrDefault(T s, T def) {
+ 		try {
+ 			return s == null ? def : s;
+ 		} catch (Exception IGNORE) { /* do nothing */ }
+ 		return def;
+ 	}
+ 
+-	public static synchronized boolean checkIfTableInDatabaseIsExisting(JdbcTemplate jdbcTemplate, String schema, String table) {
++	public static boolean checkIfTableInDatabaseIsExisting(JdbcTemplate jdbcTemplate, String schema, String table) {
+ 		try {
+ 			String sql = new StringBuilder("select exists (")
+ 					.append("SELECT information_schema.TABLES.TABLE_NAME ")
+@@ -974,7 +974,7 @@
+ 		}
+ 	}
+ 
+-	public static synchronized String mergeParamsWithQuery(String query, String usedParamPlaceHolder, Object...params) {
++	public static String mergeParamsWithQuery(String query, String usedParamPlaceHolder, Object...params) {
+ 
+ 		try {
+ 			
+Index: ../csi_be/src/main/java/it/akronos/csi/be/sql/AbstractQueryTemplateV2.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be/src/main/java/it/akronos/csi/be/sql/AbstractQueryTemplateV2.java b/../csi_be/src/main/java/it/akronos/csi/be/sql/AbstractQueryTemplateV2.java
+--- a/../csi_be/src/main/java/it/akronos/csi/be/sql/AbstractQueryTemplateV2.java	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/java/it/akronos/csi/be/sql/AbstractQueryTemplateV2.java	(date 1762441110741)
+@@ -2549,11 +2549,11 @@
+ 		Object [] params;
+ 	}
+ 	
+-	protected static synchronized String removeUnionAllToTheQueryBegin(StringBuilder sb) {
++	protected static String removeUnionAllToTheQueryBegin(StringBuilder sb) {
+ 		return removeUnionAllToTheQueryBegin(sb.toString());
+ 	}
+ 	
+-	protected static synchronized String removeUnionAllToTheQueryBegin(String query) {
++	protected static String removeUnionAllToTheQueryBegin(String query) {
+ 		if(query.trim().startsWith(UNION_ALL.trim())) {
+ 			return query.substring(UNION_ALL.length());
+ 		}
+Index: ../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerV2.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerV2.java b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerV2.java
+--- a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerV2.java	(revision 516b34266d6f283465a1152afe736523c80186dd)
++++ b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerV2.java	(date 1762441397325)
+@@ -1870,7 +1870,7 @@
+ 	}
+ 	
+ 
+-	public synchronized Map<String, QuestionSolidGauge> getCurrentNps(Filter filter) {
++	public Map<String, QuestionSolidGauge> getCurrentNps(Filter filter) {
+ 
+ 		try {
+ 
+@@ -1911,7 +1911,7 @@
+ 		return null;
+ 	}
+ 	
+-	public synchronized Map<String, QuestionSolidGauge> getCurrentTenStarScore(Filter filter) {
++	public Map<String, QuestionSolidGauge> getCurrentTenStarScore(Filter filter) {
+ 
+         try {
+             
+@@ -2536,7 +2536,7 @@
+ 	
+ 	// ***  private methods
+ 
+-	private synchronized Map<String, Object> _getNPStrendLastThreePeriods(Filter filter) {
++	private Map<String, Object> _getNPStrendLastThreePeriods(Filter filter) {
+ 
+ 		try {
+ 
+@@ -2600,7 +2600,7 @@
+ 	/***  RED Alert part ***/
+ 
+ 
+-	private synchronized Map<String, Object> _getRedAlertSummary(Filter filter) {
++	private Map<String, Object> _getRedAlertSummary(Filter filter) {
+ 
+ 		info(Const.LOG_START_METHOD + new Throwable().getStackTrace()[0].getMethodName());
+ 
+@@ -2715,7 +2715,7 @@
+ 		return Collections.emptyMap();
+ 	}
+ 
+-	private synchronized Map<String, Object> _getNPSTrend(Filter filter,String uri, String section) {
++	private Map<String, Object> _getNPSTrend(Filter filter,String uri, String section) {
+ 
+ 		HashMap<String, Object> h = null;
+ 		RestTemplate restTemplate = new RestTemplate();
+@@ -2739,7 +2739,7 @@
+ 		return h;
+ 	}
+ 
+-	private synchronized Map<String, Object> _getTrendAnalysis(Filter filter, String uri, String section) {
++	private Map<String, Object> _getTrendAnalysis(Filter filter, String uri, String section) {
+ 
+ 		HashMap<String, Object> h = null;
+ 		RestTemplate restTemplate = new RestTemplate();
+@@ -2759,7 +2759,7 @@
+ 		return h;
+ 	}
+ 
+-	private synchronized Map<String, Object> _getNPSEntityScoreJourney(String uri, Filter filter, Map<String, String> vars){
++	private Map<String, Object> _getNPSEntityScoreJourney(String uri, Filter filter, Map<String, String> vars){
+ 		RestTemplate restTemplate = new RestTemplate();
+ 		EntityJourney[] array = restTemplate.postForObject(uri, filter, EntityJourney[].class, vars);
+ 		List<EntityJourney> list = Arrays.asList(array);
+@@ -2768,7 +2768,7 @@
+ 		return util.getMapEntityJourneyWithTot(list);
+ 	}
+ 
+-	private synchronized Map<String, Object> _getTenStarEntityScoreJourney(String uri, Filter filter, Map<String, String> vars){
++	private Map<String, Object> _getTenStarEntityScoreJourney(String uri, Filter filter, Map<String, String> vars){
+ 		RestTemplate restTemplate = new RestTemplate();
+ 		EntityJourney[] array = restTemplate.postForObject(uri, filter, EntityJourney[].class, vars);
+ 		List<EntityJourney> list = Arrays.asList(array);
+@@ -2777,7 +2777,7 @@
+ 		return util.getMapEntityJourneyWithTot(list);
+ 	}
+ 	
+-	private synchronized Map<String, Object> _getTenStarTrendLastThreePeriods(Filter filter) {
++	private Map<String, Object> _getTenStarTrendLastThreePeriods(Filter filter) {
+ 
+ 		try {
+ 
+@@ -2832,7 +2832,7 @@
+ 		return Collections.emptyMap();
+ 	}
+ 
+-	private synchronized Map<String, Object> _getRadioChoiceTrendLastThreePeriods(Filter filter) {
++	private Map<String, Object> _getRadioChoiceTrendLastThreePeriods(Filter filter) {
+ 
+ 		try {
+ 
+@@ -2887,7 +2887,7 @@
+ 		return Collections.emptyMap();
+ 	}
+ 	
+-	private synchronized TopCommentCategoriesNPS[] _getTopCommentCategories(String url, Filter filter, String level, String subCategory) {
++	private TopCommentCategoriesNPS[] _getTopCommentCategories(String url, Filter filter, String level, String subCategory) {
+ 		String uri = Const.RADIX_URL + url + "?level={level}&subCategory={subCategory}";
+ 
+ 		Map<String, String> vars = new HashMap<String, String>();
+Index: ../csi_be/src/main/java/it/akronos/csi/be/sql/RedAlertQueryTemplateV2.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be/src/main/java/it/akronos/csi/be/sql/RedAlertQueryTemplateV2.java b/../csi_be/src/main/java/it/akronos/csi/be/sql/RedAlertQueryTemplateV2.java
+--- a/../csi_be/src/main/java/it/akronos/csi/be/sql/RedAlertQueryTemplateV2.java	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/java/it/akronos/csi/be/sql/RedAlertQueryTemplateV2.java	(date 1762441110829)
+@@ -2188,7 +2188,7 @@
+ 
+ 	// private methods
+ 
+-	private static synchronized String getRedAlertFlowChartCondition(String flowChart, String ontimeDays) {
++	private static String getRedAlertFlowChartCondition(String flowChart, String ontimeDays) {
+ 
+ 		String flowConditionIn = "";
+ 
+Index: ../csi_be/src/main/java/it/akronos/csi/be/util/PropsCopyer.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be/src/main/java/it/akronos/csi/be/util/PropsCopyer.java b/../csi_be/src/main/java/it/akronos/csi/be/util/PropsCopyer.java
+--- a/../csi_be/src/main/java/it/akronos/csi/be/util/PropsCopyer.java	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/java/it/akronos/csi/be/util/PropsCopyer.java	(date 1762441110706)
+@@ -12,7 +12,7 @@
+ 	private PropsCopyer() {
+ 	}
+ 
+-	public static synchronized <T, S extends T> S copyProperties(T source, S destination) {
++	public static <T, S extends T> S copyProperties(T source, S destination) {
+ 		
+ 		if (source == null || destination == null) {
+ 			throw new IllegalArgumentException("Source and destination cannot be null");
+Index: ../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.html
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.html b/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.html
+--- a/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.html	(revision 35837d53163007f926fe42b965b5b1f11414bf56)
++++ b/../csi_fe/src/app/modules/pages/customer-data-uploader/customer-data-uploader.component.html	(date 1762506688019)
+@@ -31,7 +31,10 @@
+           <mat-form-field appearance="outline" class="full">
+             <mat-label>{{ "UPLOADER_SELECT_MARKET" | translatei18n }}</mat-label>
+             <mat-select formControlName="market">
+-              <mat-option *ngFor="let m of marketOptions" [value]="m">{{ m.value }}</mat-option>
++<!--              <mat-option *ngFor="let m of marketOptions" [value]="m">{{ m.value }}</mat-option>-->
++              <mat-option *ngFor="let m of marketOptions; trackBy: trackByKey" [value]="m.key">
++                {{ m.value }}
++              </mat-option>
+             </mat-select>
+             <mat-error
+               *ngIf="form.get('market')?.hasError('required') && (form.get('market')?.touched || form.get('market')?.dirty)">
+@@ -45,7 +48,7 @@
+         </div>
+ 
+         <!-- Dealer -->
+-        <div class="form-row" *ngIf="isDealerEnabled()">
++        <div class="form-row" *ngIf="dealerEnabled">
+           <mat-form-field appearance="outline" class="full">
+             <mat-label>{{ "UPLOADER_SELECT_DEALER" | translatei18n }}</mat-label>
+             <mat-select formControlName="dealer">
+@@ -59,7 +62,10 @@
+           <mat-form-field appearance="outline" class="grow">
+             <mat-label>{{ "UPLOADER_SELECT_SURVEY" | translatei18n }}</mat-label>
+             <mat-select formControlName="survey">
+-              <mat-option *ngFor="let s of surveyOptions" [value]="s">{{ s.value }}</mat-option>
++<!--              <mat-option *ngFor="let s of surveyOptions" [value]="s">{{ s.value }}</mat-option>-->
++              <mat-option *ngFor="let m of marketOptions; trackBy: trackByKey" [value]="m">
++                {{ m.value }}
++              </mat-option>
+             </mat-select>
+             <mat-error
+               *ngIf="form.get('survey')?.hasError('required') && (form.get('survey')?.touched || form.get('survey')?.dirty)">
+@@ -94,7 +100,7 @@
+           </button>
+         </div>
+ 
+-        <p class="message" *ngIf="uploadMessage" [innerHTML]="sanitizedUploadMessage()" ></p>
++        <p class="message" *ngIf="uploadMessage" [innerHTML]="uploadMessageSafe" ></p>
+       </form>
+     </div>
+ 
+Index: ../csi_be/src/main/java/it/akronos/csi/be/service/BusinessDataRestServiceV2.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be/src/main/java/it/akronos/csi/be/service/BusinessDataRestServiceV2.java b/../csi_be/src/main/java/it/akronos/csi/be/service/BusinessDataRestServiceV2.java
+--- a/../csi_be/src/main/java/it/akronos/csi/be/service/BusinessDataRestServiceV2.java	(revision 1fd20f4b79f5c2570278f260bbd76f8be7d36855)
++++ b/../csi_be/src/main/java/it/akronos/csi/be/service/BusinessDataRestServiceV2.java	(date 1762451075006)
+@@ -269,8 +269,8 @@
+ 
+         } catch (Exception e) {
+             error(e);
+-            throw e;
+         }
++        return new EntityNetworkDealers[0];
+     }
+ 
+ 
+Index: ../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayChecker.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayChecker.java b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayChecker.java
+--- a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayChecker.java	(revision c47585c6249eab60c3cfc0275f210dc67a9251d7)
++++ b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/ArrayChecker.java	(date 1762440973822)
+@@ -18,49 +18,49 @@
+ 		return new ArrayChecker(array);
+ 	}
+ 	
+-	public synchronized ArrayChecker isNotEmpty() {
++	public ArrayChecker isNotEmpty() {
+ 		succ3ss = succ3ss && array != null && array.length > 0 ;
+ 		return this;
+ 	}
+ 	
+-	public synchronized ArrayChecker isEmpty() {
++	public ArrayChecker isEmpty() {
+ 		succ3ss = array == null || array.length < 1 ;
+ 		return this;
+ 	}
+ 	
+-	public synchronized ArrayChecker isNotNull() {
++	public ArrayChecker isNotNull() {
+ 		succ3ss = array != null;
+ 		return this;
+ 	}
+ 	
+-	public synchronized ArrayChecker isNull() {
++	public ArrayChecker isNull() {
+ 		succ3ss = array == null;
+ 		return this;
+ 	}
+ 
+-	public synchronized ArrayChecker isGreaterThan(int minNumber) {
++	public ArrayChecker isGreaterThan(int minNumber) {
+ 		succ3ss = succ3ss && array != null && array.length > minNumber;
+ 		return this;
+ 	}
+ 
+-	public synchronized ArrayChecker isLessThan(int maxNumber) {
++	public ArrayChecker isLessThan(int maxNumber) {
+ 		succ3ss = succ3ss && array != null && array.length < maxNumber;
+ 		return this;
+ 	}
+ 	
+-	public synchronized ArrayChecker or(ArrayChecker otherArrayChecker) {
++	public ArrayChecker or(ArrayChecker otherArrayChecker) {
+ 		succ3ss = succ3ss || otherArrayChecker.check();
+ 		return this;
+ 	}
+ 	
+-	public synchronized ArrayChecker and(ArrayChecker otherArrayChecker) {
++	public ArrayChecker and(ArrayChecker otherArrayChecker) {
+ 		succ3ss = succ3ss && otherArrayChecker.check();
+ 		return this;
+ 	}
+ 	
+ 	// ..other checks here if you want ;-)
+ 
+-	public synchronized boolean check() {
++	public boolean check() {
+ 		boolean res = succ3ss;
+ 		succ3ss = true; // restoring
+ 		return res;
+Index: ../csi_common_lib/src/main/java/it/akronos/csi/common/util/CommonUtils.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/CommonUtils.java b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/CommonUtils.java
+--- a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/CommonUtils.java	(revision c47585c6249eab60c3cfc0275f210dc67a9251d7)
++++ b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/CommonUtils.java	(date 1762441036692)
+@@ -29,7 +29,7 @@
+ 		return result;
+ 	}
+ 	
+-	public static synchronized List<Map<String, String>> getMenuConstAsMap(MenuConst[] elements){
++	public static List<Map<String, String>> getMenuConstAsMap(MenuConst[] elements){
+ 		List<Map<String, String>> res = new ArrayList<>();
+ 		Map<String, String> element = null;
+ 		for (MenuConst e : elements) {
+@@ -42,7 +42,7 @@
+ 		return res;
+ 	}
+ 	
+-	public static synchronized String[] getMenuConstValuesAsStringArray(MenuConst...elements){
++	public static String[] getMenuConstValuesAsStringArray(MenuConst...elements){
+ 		List<String> res = new ArrayList<>();
+ 		if (elements != null) {
+ 			for (MenuConst menuConst : elements) {
+@@ -52,7 +52,7 @@
+ 		return res.toArray(new String[res.size()]);
+ 	}
+ 	
+-	public static synchronized String[] getMenuConstNamesAsStringArray(MenuConst...elements){
++	public static String[] getMenuConstNamesAsStringArray(MenuConst...elements){
+ 		List<String> res = new ArrayList<>();
+ 		if (elements != null) {
+ 			for (MenuConst menuConst : elements) {
+Index: ../csi_common_lib/src/main/java/it/akronos/csi/common/util/DefaultValueAssigner.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/DefaultValueAssigner.java b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/DefaultValueAssigner.java
+--- a/../csi_common_lib/src/main/java/it/akronos/csi/common/util/DefaultValueAssigner.java	(revision c47585c6249eab60c3cfc0275f210dc67a9251d7)
++++ b/../csi_common_lib/src/main/java/it/akronos/csi/common/util/DefaultValueAssigner.java	(date 1762441036682)
+@@ -13,19 +13,19 @@
+  */
+ public class DefaultValueAssigner {
+ 	
+-	public static synchronized <T> T[] assignDefaultValues(T[] objs) {
++	public static <T> T[] assignDefaultValues(T[] objs) {
+ 		for (T o : objs) {
+ 			DefaultValueAssigner.assignDefaultValues(o);
+ 		}
+ 		return objs;
+ 	}
+ 	
+-	public static synchronized <T> Collection<T> assignDefaultValues(Collection<T> objs) {
++	public static <T> Collection<T> assignDefaultValues(Collection<T> objs) {
+ 		objs.stream().forEach(obj -> DefaultValueAssigner.assignDefaultValues(obj));
+ 		return objs;
+ 	}
+ 
+-	public static synchronized <T> T assignDefaultValues(T obj) {
++	public static <T> T assignDefaultValues(T obj) {
+ 		
+ 		try {
+ 			
+Index: ../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerAnalisysV2.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerAnalisysV2.java b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerAnalisysV2.java
+--- a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerAnalisysV2.java	(revision 516b34266d6f283465a1152afe736523c80186dd)
++++ b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/controller/BusinessViewsRestControllerAnalisysV2.java	(date 1762441397342)
+@@ -1198,7 +1198,7 @@
+ 		return new ResponseEntity<Map<String, Object>>(h, statusCode);
+ 	}
+ 	
+-	private synchronized CompletableFuture<EntityScore[]> makeCompletableFutureTask(String taskName, Filter filter, String url, Map<?,?> vars) {
++	private CompletableFuture<EntityScore[]> makeCompletableFutureTask(String taskName, Filter filter, String url, Map<?,?> vars) {
+ 		
+ 		CompletableFuture<EntityScore[]> task = CompletableFuture.supplyAsync(() -> {
+ 			String uri = Const.RADIX_URL + url;
+Index: ../csi_be_frontend/src/main/resources/application.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>ISO-8859-1
+===================================================================
+diff --git a/../csi_be_frontend/src/main/resources/application.properties b/../csi_be_frontend/src/main/resources/application.properties
+--- a/../csi_be_frontend/src/main/resources/application.properties	(revision 516b34266d6f283465a1152afe736523c80186dd)
++++ b/../csi_be_frontend/src/main/resources/application.properties	(date 1762455801784)
+@@ -7,4 +7,22 @@
+ MYSQL_DATABASE=108.142.88.215
+ 
+ REDIS_URL=csicache-service-cnh2
+-REDIS_PORT=6379
+\ No newline at end of file
++REDIS_PORT=6379
++
++# Database connection pool
++spring.datasource.hikari.maximum-pool-size=20
++spring.datasource.hikari.minimum-idle=5
++spring.datasource.hikari.connection-timeout=30000
++spring.datasource.hikari.idle-timeout=600000
++spring.datasource.hikari.max-lifetime=1800000
++
++# Tomcat threads
++server.tomcat.threads.max=200
++server.tomcat.threads.min-spare=10
++server.tomcat.max-connections=10000
++server.tomcat.accept-count=100
++
++logging.level.com.zaxxer.hikari=WARN
++logging.level.org.springframework.web=WARN
++logging.level.org.springframework.jdbc=WARN
++logging.level.org.springframework.web.client=WARN
+\ No newline at end of file
+Index: ../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/util/BusinesViewsControllerHelper.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/util/BusinesViewsControllerHelper.java b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/util/BusinesViewsControllerHelper.java
+--- a/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/util/BusinesViewsControllerHelper.java	(revision 516b34266d6f283465a1152afe736523c80186dd)
++++ b/../csi_be_frontend/src/main/java/it/akronos/csi/be/frontend/util/BusinesViewsControllerHelper.java	(date 1762441397356)
+@@ -45,7 +45,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, Object> getBrandsHierarchy(List<EntityNetworkBrands> entities){
++	public static Map<String, Object> getBrandsHierarchy(List<EntityNetworkBrands> entities){
+ 
+ 		Map<String, Object> brands = new LinkedHashMap<>();
+ 		Map<String, Object> regions = null;
+@@ -76,7 +76,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, Object> getAreasHierarchy(List<EntityNetworkAreas> entities){
++	public static Map<String, Object> getAreasHierarchy(List<EntityNetworkAreas> entities){
+ 
+ 		Map<String, Object> areas = new LinkedHashMap<>();
+ 
+@@ -122,7 +122,7 @@
+ 		return areas;
+ 	}
+ 
+-	public static synchronized Map<String, String> getBrandGroupTypes(List<EntityNetworkBrands> entities){
++	public static Map<String, String> getBrandGroupTypes(List<EntityNetworkBrands> entities){
+ 		Map<String, String> groupTypes = new HashMap<>();
+ 		for (EntityNetworkBrands entityNetwork : entities) {
+ 			groupTypes.put(entityNetwork.getBrand(), entityNetwork.getGroupType());
+@@ -130,7 +130,7 @@
+ 		return groupTypes;
+ 	}
+ 
+-	public static synchronized Map<String, NetworkDealerAttributes> getDealerOutletAttributes(List<EntityNetworkDealers> entities){
++	public static Map<String, NetworkDealerAttributes> getDealerOutletAttributes(List<EntityNetworkDealers> entities){
+ 		Map<String, NetworkDealerAttributes> dealerAttributes = new HashMap<>();
+ 		NetworkDealerAttributes attributes = null;
+ 		for (EntityNetworkDealers entityNetwork : entities) {
+@@ -143,7 +143,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, List<NetworkBrand>> normalizeBrandsHierarchy(Map<String, Object> brandsHierarchy, Map<String, String> brandTypeGroups){
++	public static Map<String, List<NetworkBrand>> normalizeBrandsHierarchy(Map<String, Object> brandsHierarchy, Map<String, String> brandTypeGroups){
+ 
+ 		NetworkBrand networkBrand = null;
+ 		NetworkRegion networkRegion = null;
+@@ -194,7 +194,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, List<NetworkArea>> normalizeAreasHierarchy(Map<String, Object> areasHierarchy){
++	public static Map<String, List<NetworkArea>> normalizeAreasHierarchy(Map<String, Object> areasHierarchy){
+ 
+ 		NetworkArea networkArea = null;
+ 
+@@ -260,7 +260,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, List<NetworkDealer>> normalizeDealersHierarchy(
++	public static Map<String, List<NetworkDealer>> normalizeDealersHierarchy(
+ 			Map<String, Object> dealersHierarchy, 
+ 			Map<String, NetworkDealerAttributes> dealerOutletAttributes) {
+ 
+@@ -295,7 +295,7 @@
+ 
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, Object> getDealersHierarchy(List<EntityNetworkDealers> entities) {
++	public static Map<String, Object> getDealersHierarchy(List<EntityNetworkDealers> entities) {
+ 
+ 		Map<String, Object> allDealers = new LinkedHashMap<>();
+ 		List<String> outlets = null;
+@@ -320,7 +320,7 @@
+ 	}
+ 	
+ 
+-	public static synchronized Map<String, Object> getDealersHierarchyV2(List<EntityNetworkDealers> entities) {
++	public static Map<String, Object> getDealersHierarchyV2(List<EntityNetworkDealers> entities) {
+         // Raggruppare gli oggetti per dealer
+         Map<String, List<EntityNetworkDealers>> groupedByDealer = entities.stream()
+                 .filter(e -> e.getDealer() != null)
+@@ -362,7 +362,7 @@
+     }
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, Object> getMachineTypesHierarchy(List<EntityProductMachineTypes> entities) {
++	public static Map<String, Object> getMachineTypesHierarchy(List<EntityProductMachineTypes> entities) {
+ 
+ 		Map<String, Object> brands = new LinkedHashMap<>();
+ 		Map<String, Object> machineTypes = null;
+@@ -400,7 +400,7 @@
+ 	}
+ 
+ 	@SuppressWarnings("unchecked")
+-	public static synchronized Map<String, List<ProductBrand>> normalizeMachineTypesHierarchy(Map<String, Object> machineTypesHierarchy) {
++	public static Map<String, List<ProductBrand>> normalizeMachineTypesHierarchy(Map<String, Object> machineTypesHierarchy) {
+ 
+ 		ProductBrand productBrand = null;
+ 		ProductMachineType productMachineType = null;
+@@ -463,7 +463,7 @@
+ 		return productBrandsMap;
+ 	}
+ 
+-	public static synchronized List<Map<String, String>> getMenuConstAsMap(MenuConst[] elements){
++	public static List<Map<String, String>> getMenuConstAsMap(MenuConst[] elements){
+ 		List<Map<String, String>> res = new ArrayList<>();
+ 		Map<String, String> element = null;
+ 		for (MenuConst e : elements) {
+Index: ../csi_fe/src/app/shared/interceptors/error.interceptor.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../csi_fe/src/app/shared/interceptors/error.interceptor.ts b/../csi_fe/src/app/shared/interceptors/error.interceptor.ts
+--- a/../csi_fe/src/app/shared/interceptors/error.interceptor.ts	(revision 35837d53163007f926fe42b965b5b1f11414bf56)
++++ b/../csi_fe/src/app/shared/interceptors/error.interceptor.ts	(date 1762456295265)
+@@ -78,7 +78,7 @@
+               localStorage.setItem('Request Headers:', JSON.stringify(headersJson));
+               localStorage.setItem("error",JSON.stringify(error));
+               this.login();
+-              return error;
++              throw error;
+             } else {
+               if (responseMessage !== "OK") {
+                 if (!this.snackbarRef) {
+@@ -93,9 +93,9 @@
+                   this.snackbarRef.afterDismissed().subscribe(() => (this.snackbarRef = undefined));
+                 }
+               }
+-              return error;
++              throw error;
+             }
+-            return error;
++            throw error;
+           }
+ 
+         }
+Index: ../java-saml/toolkit/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/../java-saml/toolkit/pom.xml b/../java-saml/toolkit/pom.xml
+--- a/../java-saml/toolkit/pom.xml	(revision 319298bcb71a75b54037a137abb48d636bbf93f4)
++++ b/../java-saml/toolkit/pom.xml	(date 1762437733713)
+@@ -18,7 +18,6 @@
+ 		</dependency>
+ 
+ 		<!-- for test -->
+-		<!-- 
+ 		<dependency>
+ 			<groupId>com.onelogin</groupId>
+ 			<artifactId>java-saml-core</artifactId>
+@@ -26,7 +25,7 @@
+ 			<type>test-jar</type>
+ 			<scope>test</scope>
+ 		</dependency>
+-		 -->
++
+ 		<dependency>
+ 			<groupId>org.hamcrest</groupId>
+ 			<artifactId>hamcrest-core</artifactId>

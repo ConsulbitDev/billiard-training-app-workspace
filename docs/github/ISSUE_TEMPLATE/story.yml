@@ -1,0 +1,48 @@
+name: Story
+description: Capture a single user job with acceptance criteria
+labels: ["type:story"]
+body:
+  - type: textarea
+    id: job-story
+    attributes:
+      label: 🧩 Job Story
+      description: Use the format: When [situation], I want to [motivation], so I can [expected outcome].
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: ✅ Acceptance Criteria
+      description: Define clear, testable criteria
+      options:
+        - label: Criteria 1
+        - label: Criteria 2
+        - label: Criteria 3
+  - type: dropdown
+    id: area
+    attributes:
+      label: 📐 Area
+      options:
+        - backend
+        - frontend
+        - docs
+        - infra
+  - type: dropdown
+    id: size
+    attributes:
+      label: 📐 Size
+      options:
+        - S
+        - M
+        - L
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 📌 Priority
+      options:
+        - P1
+        - P2
+        - P3
+  - type: textarea
+    id: notes
+    attributes:
+      label: 📝 Notes
+      description: Additional context, design hints, dependencies, etc.
