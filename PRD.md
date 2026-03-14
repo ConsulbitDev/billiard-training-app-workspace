@@ -1,277 +1,571 @@
-Product Requirements Document (PRD)
-===================================
 
-**Project:** Billiard Training App**  
-Variant:** 5-Pins (Italiana, Goriziana)**  
-Version:** v1 – First Value Release**  
-Audience:** Solo developer + AI-assisted engineering tools
+# Billiard Training App
+## Product Requirements Document (PRD)
 
-1\. Goal & First Value
-----------------------
+Version: 1.0  
+Scope: V1 — Knowledge Base Explorer + Admin
 
-### 1.1 Product Goal (v1)
+---
 
-Enable a player to:
-*   Browse a structured catalog of billiards shots
-*   Build a personal training plan
-*   Log shot execution during training
-*   See objective improvement over time
+# 1. Product Overview
 
-### 1.2 First Value Moment
+## Purpose
+The Billiard Training App transforms a spreadsheet-based billiards knowledge base into a structured web application that enables efficient browsing, consultation, and maintenance of shot knowledge.
 
-> User selects shots → creates a training session → logs attempts → immediately sees success/failure statistics.
+The application allows players to:
+- locate shots quickly
+- consult diagrams, videos, and references
+- maintain structured notes
+- manage the knowledge base
 
-This is the **activation point**. Anything not supporting this flow is out of scope.
+Training session tracking and statistics are **out of scope for V1**.
 
-2\. Target User (v1)
---------------------
+---
 
-*   **Primary:** Single advanced amateur player (initially the author)
-*   **Design intent:** Multi-user ready, but **no auth in v1**
-*   **Assumption:** All data is scoped to a single logical user
+# 2. Product Goals
 
-_No accounts, no profiles, no sharing._
+Primary goals:
+- Fast shot discovery
+- Efficient filtering
+- Clear shot visualization
+- Structured knowledge management
 
-3\. Non-Goals (Hard Exclusions)
--------------------------------
+Secondary goals:
+- Provide a maintainable data model
+- Support incremental knowledge growth
+- Enable future training features
 
-Explicitly **out of scope** for v1:
+---
 
-*   Video analysis
-*   AI-based shot suggestions
-*   Social / community features
-*   Coach dashboards
-*   Advanced aiming systems (e.g. Edge Aiming System logic)
-*   Monetization
-*   Notifications
+# 3. Scope
 
-If it smells like “smart”, it’s v2+.
+## In Scope (V1)
 
-4\. System Context
-------------------
+- Shot browsing
+- Shot filtering
+- Shot detail consultation
+- Resource visualization (image/video/pdf)
+- Comment system
+- Admin CRUD for shots
+- Admin CRUD for categories
+- Admin CRUD for books
+- Resource management
 
-### 4.1 Backend (Current State)
+## Out of Scope (V1)
 
-*   Spring Boot
-*   REST APIs with OpenAPI
-*   Database already populated from Google Sheets (shots catalog)
-*   Single-user assumption
-*   No authentication
+- Training sessions
+- Shot success tracking
+- Statistics
+- AI shot suggestions
+- Multi-user accounts
+- Authentication
+- Social features
 
-### 4.2 Frontend (Target State)
+---
 
-*   Angular v19
-*   Tailwind CSS (to be integrated if not present)
-*   Service-based state sharing (no NgRx)
-*   Responsive, desktop-first bias
+# 4. System Architecture
 
-5\. Core Domain Concepts (v1)
------------------------------
+## Backend
 
-### 5.1 Shot
+Technology stack:
+- Spring Boot
+- Spring Data JPA
+- PostgreSQL (or compatible)
+- OpenAPI
 
-Read-only reference entity.
+Architecture rules:
+- DTO-based API responses
+- JPA Specifications for filtering
+- Server-side pagination
+- Lazy loading for heavy relations
 
-**Key attributes (assumed, adjust if needed):**
+## Frontend
 
-*   id
-*   name
-*   category / system
-*   description
-*   difficulty (optional)
-*   notes (read-only reference notes)
+Technology stack:
+- Angular
+- Angular Material
+- Tailwind CSS
+- RxJS
 
-Shots are **not user-owned**.
+Responsibilities:
+- data grid rendering
+- filter interaction
+- detail view rendering
+- resource embedding
+- admin forms
 
-### 5.2 Training Session
+---
 
-A user-created container.
+# 5. Domain Model
 
-**Attributes:**
+## Shot
 
-*   id
-*   title
-*   date
-*   optional free-text comment
-*   list of logged shot attempts
+Represents a billiards concept or system extracted from a learning resource.
 
-### 5.3 Shot Attempt (Log Entry)
+Fields:
 
-The atomic unit of tracking.
+| Field | Description |
+|------|-------------|
+| id | unique identifier |
+| name | shot name |
+| description | explanation of the shot |
+| category | conceptual grouping |
+| type | direct or indirect |
+| topology | numbering system or shot |
+| priority | training importance |
+| pageNumber | reference page |
+| book | source reference |
 
-**Minimum required fields:**
+---
 
-*   shotId
-*   success (boolean)
-*   timestamp
-*   optional comment
+## Category
 
-No physics. No ball positions. Just outcome + context.
+Logical grouping of shots.
 
-6\. Core User Flows (v1)
-------------------------
+Examples:
+- Americana
+- Striscio
+- Filotto
+- Traversino
+- Sfaccio
 
-### 6.1 Browse Shots
+Fields:
 
-**Purpose:** Discover and select shots.
+| Field | Description |
+|------|-------------|
+| id | identifier |
+| name | category name |
+| description | explanation |
+| priority | UI ordering |
+| color | UI display color |
 
-*   Show list of shots
-*   Filter by category / system
-*   Open shot detail view
-*   Read static shot information
-*   Read and add **user comments** (important)
+---
 
-### 6.2 Create Training Session
+## Book
 
-**Purpose:** Define intent before execution.
+Represents the learning source of a shot.
 
-Steps:
+Fields:
 
-1.  Select one or more shots
-2.  Create a named training session
-3.  Optionally add session comment
+| Field | Description |
+|------|-------------|
+| id | identifier |
+| title | book title |
+| author | author |
+| cover | cover image |
+| numOfPages | number of pages |
+| published | publication date |
+| source | optional digital resource |
 
-_No scheduling, no recurrence._
+---
 
-### 6.3 Log Shots Quickly (Critical UX)
+## Resource
 
-**Purpose:** Avoid friction during practice.
+External media associated with a shot.
 
-Requirements:
+Fields:
 
-*   Rapid success/failure input
-*   Minimal navigation
-*   Inline comments per attempt
-*   Undo / edit last entries
+| Field | Description |
+|------|-------------|
+| id | identifier |
+| shot | owning shot |
+| title | resource label |
+| description | optional description |
+| url | external link |
+| type | IMAGE / VIDEO / PDF |
+| orderIndex | rendering order |
 
-This is the **highest UX priority**.
+---
 
-### 6.4 Session Summary
+## Comment
 
-Immediately after or during training:
+User annotations about a shot.
 
-*   Total attempts
-*   Success %
-*   Breakdown per shot
-*   Session comments
+Fields:
 
-### 6.5 Historical Stats
+| Field | Description |
+|------|-------------|
+| id | identifier |
+| message | comment text |
+| createdAt | creation timestamp |
+| updatedAt | last update timestamp |
 
-Across sessions:
-*   Overall success %
-*   Per-shot success %
-*   Trend over time (simple)
+---
 
-Assumption: server computes aggregates, FE visualizes.
+# 6. Enumerations
 
-### 6.6 Export Data
+## Type
+DIRECT  
+INDIRECT
 
-*   Export sessions and logs (CSV or JSON)
-*   Manual trigger
-*   No automation
+## Topology
+NUMBERING  
+SHOT
 
-7\. Functional Requirements (Explicit)
---------------------------------------
+## Priority
+MUST_HAVE  
+RECOMMENDED  
+NICE_TO_HAVE  
+INTERESTED  
+UNRELIABLE  
+NOT_NEEDED
 
-### Must Have (v1)
+---
 
-*   View shot list
-*   View shot detail
-*   Add comments to shots
-*   Create training session
-*   Log multiple shot attempts quickly
-*   Edit / delete attempts
-*   Session summary
-*   Historical statistics
-*   Data export
+# 7. Shot Explorer
 
-### Should Have (v1 if cheap)
+## Shot List
 
-*   Session filtering
-*   Shot favorites
+The main application screen.
 
-### Won’t Have (v1)
+Columns:
+- Name
+- Category
+- Type
+- Topology
+- Priority
+- Book
+- Page
 
-Everything in section 3.
+---
 
-8\. Statistics & Feedback
--------------------------
+## Filtering
 
-### 8.1 Metrics
+Supported filters:
+- Category
+- Type
+- Topology
+- Priority
+- Search text
 
-*   Success / Failure %
-*   Attempts count
-*   Per-shot aggregation
+Filter rules:
+- Within same filter → OR
+- Across filters → AND
 
-### 8.2 Update Strategy
+Example:
 
-*   Real-time update after each log
-*   Backend returns updated aggregates
-*   FE does not compute statistics
+(Category = Filotto OR Traversino)  
+AND  
+(Priority = MUST_HAVE)
 
-9\. Frontend Structure (AI-Friendly)
-------------------------------------
+---
 
-### 9.1 Pages / Routes
+## Search
 
-*   /shots
-*   /shots/:id
-*   /sessions
-*   /sessions/new
-*   /sessions/:id
-*   /stats
-*   /export
+Search applies to:
+- Shot.name
+- Shot.description
 
-### 9.2 Components (Suggested)
+Behavior:
+- case insensitive
+- partial match
 
-*   ShotListComponent
-*   ShotDetailComponent
-*   ShotCommentComponent
-*   SessionBuilderComponent
-*   ShotLoggerComponent
-*   SessionSummaryComponent
-*   StatsDashboardComponent
+---
 
-Each component:
+# 8. Shot Detail View
 
-*   Stateless where possible
-*   Data via services
-*   Inputs/Outputs explicit
+Sections:
 
-10\. API Interaction Principles
--------------------------------
+1. Shot metadata
+2. Description
+3. Resources
+4. Comments
 
-*   FE strictly consumes OpenAPI-defined endpoints
-*   No hidden client logic
-*   All mutations confirmed by backend response
-*   Errors surfaced minimally, no UX overengineering
+Metadata fields:
+- Name
+- Category
+- Type
+- Topology
+- Priority
+- Book
+- Page
 
-11\. AI-Assisted Engineering Guidelines
----------------------------------------
+---
 
-This PRD is optimized to:
-*   Generate FE components one by one
-*   Generate services aligned to backend resources
-*   Create GitHub issues directly from sections
-*   Enable step-by-step AI prompting (one feature per prompt)
+## Resources
 
-**Rule:**
+Supported types:
+- IMAGE
+- VIDEO
+- PDF
 
-> One PR = one user-visible capability.
+Rendering:
 
-12\. Success Criteria (v1)
---------------------------
+| Type | Rendering |
+|------|----------|
+| IMAGE | img element |
+| VIDEO | iframe |
+| PDF | iframe viewer |
 
-The app is successful if:
-*   You can run a full training session without friction
-*   Logging shots feels faster than pen & paper
-*   Stats are visible immediately
-*   No auth or setup overhead exists
+Google Drive URLs must be converted for embedding.
 
-13\. Open Assumptions (Confirm Later)
--------------------------------------
+---
 
-*   Exact shot attributes
-*   Export format preference
-*   Visualization library (if any)
-*   Persistence strategy for comments
+## Comments
+
+Users can:
+- add comment
+- edit comment
+- delete comment
+
+Sorted by newest first.
+
+---
+
+# 9. Admin Module
+
+Routes:
+
+/admin  
+/admin/shots  
+/admin/shots/new  
+/admin/shots/:id/edit  
+/admin/categories  
+/admin/books
+
+---
+
+# 10. Shot Administration
+
+Admin can:
+- create shot
+- edit shot
+- delete shot
+
+Editable fields:
+
+- name
+- description
+- category
+- type
+- topology
+- priority
+- book
+- pageNumber
+- resources
+
+---
+
+# 11. Resource Management
+
+Resource fields:
+
+- title
+- url
+- type
+- description
+- orderIndex
+
+Resources are added by pasting external URLs.
+
+---
+
+# 12. Category Management
+
+Fields:
+
+- name
+- description
+- priority
+- color
+
+Admin can create, update, and delete categories.
+
+---
+
+# 13. Book Management
+
+Fields:
+
+- title
+- author
+- cover
+- numOfPages
+- published
+- source
+
+Admin can create, update, and delete books.
+
+---
+
+# 14. API Specification
+
+## Shot Search
+
+GET /shots
+
+Parameters:
+- categoryIds
+- types
+- topologies
+- priorities
+- search
+- page
+- size
+- sort
+
+---
+
+## Shot Detail
+
+GET /shots/{id}
+
+---
+
+## Comments
+
+POST /shots/{id}/comments  
+PUT /comments/{id}  
+DELETE /comments/{id}
+
+---
+
+## Resources
+
+POST /shots/{id}/resources  
+PUT /resources/{id}  
+DELETE /resources/{id}
+
+---
+
+# 15. DTO Strategy
+
+Entities must never be returned directly.
+
+## ShotSummaryDTO
+
+Fields:
+
+- id
+- name
+- categoryId
+- categoryName
+- type
+- topology
+- priority
+- bookTitle
+- pageNumber
+
+---
+
+## ShotDetailDTO
+
+Fields:
+
+- id
+- name
+- description
+- category
+- type
+- topology
+- priority
+- book
+- resources
+- comments
+
+---
+
+# 16. Query Strategy
+
+Filtering must use **JPA Specifications**.
+
+Example predicates:
+
+- category.id IN (...)
+- type IN (...)
+- topology IN (...)
+- priority IN (...)
+- LOWER(name) LIKE %search%
+- LOWER(description) LIKE %search%
+
+---
+
+# 17. Pagination
+
+Server-side pagination.
+
+Default page size:
+25
+
+Optional:
+50  
+100
+
+---
+
+# 18. Performance Strategy
+
+Rules:
+
+- Do not load resources in shot list
+- Load resources only in detail view
+- Use DTO projections
+- Use lazy loading
+
+---
+
+# 19. Indexing
+
+Recommended indexes:
+
+- shots.category_id
+- shots.priority
+- shots.type
+- shots.topology
+- shots.name
+
+---
+
+# 20. Frontend Architecture
+
+Angular feature modules:
+
+- core
+- shared
+- layout
+- shots
+- admin
+
+Core services:
+
+- ShotService
+- CategoryService
+- BookService
+- ResourceService
+
+---
+
+# 21. Styling Strategy
+
+Angular Material:
+- tables
+- forms
+- dialogs
+- buttons
+
+Tailwind:
+- layout
+- spacing
+- responsive design
+
+---
+
+# 22. Performance Targets
+
+| Action | Target |
+|------|------|
+| Shot list load | <300ms |
+| Filter update | <300ms |
+| Shot detail load | <400ms |
+
+---
+
+# 23. Future Evolution
+
+Potential future modules:
+
+- Training sessions
+- Shot logging
+- Performance statistics
+- Training planning
+- AI assistance
