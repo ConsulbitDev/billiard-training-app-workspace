@@ -36,3 +36,18 @@ root.
   (as a classic module), not in `jb-workspace.xml`. It has its own self-contained `.idea/`
   project config, and adding it to `jb-workspace.xml` as well triggers an IntelliJ error
   ("Project 'billiard-analyzer-python' cannot be added to workspace") — don't re-add it there.
+
+## Spawning agents that work in a sibling repo
+
+Claude Code's `isolation: "worktree"` only isolates within the **current** repo (this workspace
+root). It cannot create a worktree inside a sibling repo like `billiard-training-app-be` or
+`billiard-training-app-fe` — an agent pinned to a workspace-root worktree gets its `Edit`/`Write`/
+`git` tools hard-blocked the moment it targets a sibling repo's real path, with no way to opt out.
+
+If you need real isolation between two agents both working in the *same* sibling repo, you must
+create the worktree manually inside that sibling repo's own `.git` (plain `git worktree add`),
+not via this workspace's isolation mechanism. Otherwise, run agents targeting the same sibling
+repo **sequentially**, not in parallel — two non-isolated agents editing/committing in the same
+real checkout at once risk clobbering each other if their file sets ever overlap. Agents targeting
+*different* sibling repos (e.g. one in `-be`, one in `-fe`) are naturally isolated already, since
+they're different git repos on disk — no special handling needed there.
