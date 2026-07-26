@@ -157,3 +157,14 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 /data/
+
+# Sibling projects are independent git repos, not part of this repo's history
+/billiard-analyzer/
+/billiard-analyzer-python/
+/billiard-training-app-be/
+/billiard-training-app-fe/
+/.github/
+
+# Local Claude Code settings and pre-move backup
+/.claude/**
+/.idea.bak-preMove/
