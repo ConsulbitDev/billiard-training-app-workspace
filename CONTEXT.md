@@ -78,4 +78,68 @@ One entry in a Diagram's open list of balls. Has a role (Cue Ball / Object Ball 
 Ball today, extendable later), an associated color, a start position, and an optional Path.
 Not a fixed 3-tuple — the list can hold more or fewer than 3 if a shot needs it — but Italiana
 and Goriziana are physically 3-ball games, so 3 (white cue, yellow cue, red object) is the
-practical default.
+practical default. Diameter is 61–61.5mm per the official FIBiS regulation ("5 Birilli - 9
+Birilli Goriziana - Tutti Doppi", in force from the 2022/23 season) — validated, not a guess.
+
+## Table geometry
+
+Real-world dimensions and reference marks of the billiard table itself, as distinct from the
+Diagram content placed on it (Balls/Paths). Sourced from the official FIBiS regulation
+(`resources/Rgolamento_gioco_5birilli_goriziana.pdf`), not the original POC's guesses — where
+the two disagreed, the regulation wins and the POC's numbers should be corrected accordingly.
+
+**Playing Surface**:
+The table's playable rectangle: 284cm × 142cm (±5mm tolerance). Confirmed identical for both
+Italiana (cue-stick games) and Goriziana — same regulation table, different game rules on it.
+No pockets on either — official rules moved to pocketless tables in 1983.
+_Avoid_: "table" alone when precision matters — the full table (see Rail below) is larger than
+just the playing surface.
+
+**Rail**:
+The cushion bordering the playing surface ("sponda" in the regulation). 12.5–15cm total
+horizontal width, of which 5cm is the elastic rebound material ("sponda di gomma"), with a
+rebound edge height of 37mm (±1mm). The POC's `frameWidth`/`railWidth` split maps loosely onto
+this (frame ≈ the Rail's total width, rail ≈ the elastic rebound strip) but was numerically off
+(6cm where the regulation says 5cm for the elastic strip) — correct to the regulation's figures.
+_Avoid_: "sponda" — keep the glossary in English like the rest of this file's terms; use Rail.
+
+**Diamond**:
+A fixed reference mark on the outer edge of the Rail, spaced at intervals of 1/8 of the Playing
+Surface's length (284cm ÷ 8 = 35.5cm), including the corners. This gives **9 Diamonds per long
+side, 5 per short side**. A Diamond's *position* is physical and fixed and defines the axes of
+the Diamond Coordinate System (below) — a Diamond's *number* under a given aiming system is a
+separate, per-Diagram concern (see Numbering System).
+
+**Diamond Coordinate System**:
+What a Ball's position and a Path's points actually store in the Diagram JSON — **not**
+centimeters. Deliberately chosen over raw cm because cm coordinates aren't reproducible by a
+player on a real table without a ruler; counting Diamonds and estimating tenths between them is
+how players actually locate positions.
+Each Diamond interval (35.5cm) equals 10 units, giving continuous axes of **0–40 across the
+short Rail and 0–80 across the long Rail** (a Diamond sits at every multiple of 10). Origin
+(0, 0) is the bottom-left corner of the "quadrato inferiore" (the near/acchito square, where
+play starts, per the regulation's own Tavola 1 diagram) — X grows across the short Rail, Y grows
+up the long Rail, away from the player. Values are continuous, not restricted to whole tens —
+this is the coordinate space a drag-to-position editor writes to, with Diamond marks simply
+landing on round numbers within it. Example: (20, 40) is the exact center of the table.
+_Avoid_: storing or persisting raw centimeter coordinates for Ball/Path positions — cm remain
+the unit for the static Table geometry constants (Playing Surface, Rail, Diamond spacing) only.
+
+**Pin** (Birillo):
+A small cylindrical marker (25mm tall; 7mm diameter at top, 10mm at the widest point, 7mm base)
+used in the birilli-scoring games (5/9 Birilli, Goriziana, Tutti Doppi). Arranged in a "Castello"
+(rack) at 66mm inter-Pin spacing, positioned along the table's median line. In scope for the
+engine as a visual element (rendered on the table) and, like Diamonds, some aiming systems use
+Pins as numbered reference points too — same system-relative-numbering caveat applies.
+
+**Numbering System**:
+Deliberately built in two stages. **v1 (in scope for the initial engine milestone): ad hoc,
+per-Diagram number labels** — a Diagram can attach a plain number to any Diamond/Pin it
+references, entered by whoever authors that Diagram, with no reuse across Diagrams. This is what
+makes a `NUMBERING`-topology Shot's Diagram actually convey a system at all, so it isn't deferred
+entirely despite being simplified. **Deferred:** a reusable, named scheme (e.g. "the 3-diamond
+system") that multiple Diagrams could reference instead of each re-entering the same numbers —
+real complexity, correctly pushed past the initial milestone.
+_Consequence for persistence_: Diamond/Pin *positions* stay a static rendering constant (derived
+from Table geometry, not stored per-Diagram) — but Diamond/Pin *number labels* are per-Diagram
+data and must live in the Diagram JSON alongside Balls/Paths.
