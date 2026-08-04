@@ -53,15 +53,20 @@ within a Diagram. Bend points represent bank/kick rail contacts. A ball with no 
 (sits in place, e.g. as an obstacle) — Paths are optional per ball, not mandatory.
 
 **Cue Ball**:
-The ball the current player is shooting/striking with, in a given Diagram.
+The ball the current player is shooting/striking with, in a given Diagram. Always white or
+yellow — the two player-owned ball colors — whichever the player in question is using; not a
+fixed color.
 
 **Object Ball**:
-The ball the cue ball is initially directed at.
+The ball the cue ball is initially directed at. In the practical 3-ball setup this is the
+opponent's ball — always the *other* of white/yellow from whichever the Cue Ball is using, never
+both the same color in one Diagram.
 
 **Second Object Ball**:
 The other ball on the table — not the cue ball's initial target — that may become involved
 indirectly, via carom or combination, during the shot. Term borrowed from English-language
-carom/three-cushion billiards terminology, chosen specifically to replace "pallino."
+carom/three-cushion billiards terminology, chosen specifically to replace "pallino." Always red —
+unlike Cue Ball/Object Ball, this role is not player-owned, so its color doesn't vary.
 _Avoid_: "pallino" — colloquially just the Italian word for "ball" (as in "pallino bianco"),
 not specific to this role, and ambiguous as a result.
 
@@ -77,9 +82,13 @@ positioned, per-point notes that a single free-text field can't represent.
 One entry in a Diagram's open list of balls. Has a role (Cue Ball / Object Ball / Second Object
 Ball today, extendable later), an associated color, a start position, and an optional Path.
 Not a fixed 3-tuple — the list can hold more or fewer than 3 if a shot needs it — but Italiana
-and Goriziana are physically 3-ball games, so 3 (white cue, yellow cue, red object) is the
-practical default. Diameter is 61–61.5mm per the official FIBiS regulation ("5 Birilli - 9
-Birilli Goriziana - Tutti Doppi", in force from the 2022/23 season) — validated, not a guess.
+and Goriziana are physically 3-ball games, so exactly one ball per role (Cue Ball, Object Ball,
+Second Object Ball) is the practical default. Color follows role, not free choice: Second Object
+Ball is always red; Cue Ball and Object Ball are each white or yellow, and must be the opposite
+color from one another whenever both are present — see the role entries above for why (only Cue
+Ball/Object Ball are player-owned, so only those two vary). Diameter is 61–61.5mm per the
+official FIBiS regulation ("5 Birilli - 9 Birilli Goriziana - Tutti Doppi", in force from the
+2022/23 season) — validated, not a guess.
 
 ## Table geometry
 
