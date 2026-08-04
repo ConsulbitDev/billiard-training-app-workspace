@@ -23,8 +23,9 @@ geometry" section for the full glossary):
 - Playing Surface: 284cm × 142cm (±5mm) — the POC's number was already correct.
 - Ball diameter: 61–61.5mm — the POC's 6.15cm was already correct; an earlier Wikipedia-sourced
   claim of 63.2mm was wrong and is retracted.
-- Rail: 12.5–15cm total width, of which 5cm is the elastic rebound strip — the POC's
-  `railWidth: 6` should be corrected to 5cm.
+- Rail + Cushion (combined): 12.5–15cm total width from the outer table edge to the Playing
+  Surface, of which 5cm is the Cushion (the rubber rebound strip) — the POC's `railWidth: 6`
+  should be corrected to 5cm. See `CONTEXT.md` for the Rail/Cushion terminology split.
 - Pin (Birillo): 25mm tall, 7mm/10mm/7mm diameter profile, 66mm inter-Pin spacing, arranged in a
   "Castello" along the median line. Not modeled by the POC at all; now in scope as a visual
   element (see below).

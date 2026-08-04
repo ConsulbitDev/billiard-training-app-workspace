@@ -109,12 +109,23 @@ _Avoid_: "table" alone when precision matters — the full table (see Rail below
 just the playing surface.
 
 **Rail**:
-The cushion bordering the playing surface ("sponda" in the regulation). 12.5–15cm total
-horizontal width, of which 5cm is the elastic rebound material ("sponda di gomma"), with a
-rebound edge height of 37mm (±1mm). The POC's `frameWidth`/`railWidth` split maps loosely onto
-this (frame ≈ the Rail's total width, rail ≈ the elastic rebound strip) but was numerically off
-(6cm where the regulation says 5cm for the elastic strip) — correct to the regulation's figures.
-_Avoid_: "sponda" — keep the glossary in English like the rest of this file's terms; use Rail.
+The outer, structural wood portion bordering the Playing Surface — what a player rests a cue or
+chalk on, and where the Diamonds are embedded. Together with the Cushion (below), the two form
+the raised border colloquially called "sponda" in the regulation; Rail specifically means the
+wood part, not that whole assembly. 8cm wide (the 12.5–15cm regulation total for Rail + Cushion
+combined, minus the Cushion's 5cm).
+_Avoid_: "sponda" — keep the glossary in English like the rest of this file's terms. Also avoid
+using "Rail" loosely for the combined Rail+Cushion assembly now that the two have distinct
+names — say "Rail + Cushion" or "the border" when you mean both together.
+
+**Cushion**:
+The inner rubber rebound strip a ball actually bounces off ("sponda di gomma" in the regulation),
+between the Rail and the Playing Surface. 5cm wide, with a rebound edge height of 37mm (±1mm).
+The POC's `frameWidth`/`railWidth` split maps loosely onto Rail+Cushion vs. Cushion alone (frame ≈
+Rail+Cushion combined, rail ≈ Cushion) but was numerically off (6cm where the regulation says 5cm)
+— correct to the regulation's figures.
+_Avoid_: "elastic strip"/"elastic rebound material" — earlier phrasing in this codebase before the
+Rail/Cushion split was named; use Cushion.
 
 **Diamond**:
 A fixed reference mark on the outer edge of the Rail, spaced at intervals of 1/8 of the Playing
