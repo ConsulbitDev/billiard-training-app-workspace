@@ -143,3 +143,33 @@ real complexity, correctly pushed past the initial milestone.
 _Consequence for persistence_: Diamond/Pin *positions* stay a static rendering constant (derived
 from Table geometry, not stored per-Diagram) — but Diamond/Pin *number labels* are per-Diagram
 data and must live in the Diagram JSON alongside Balls/Paths.
+
+## Editor overlays
+
+Optional visual aids for positioning Balls/Paths while authoring a Diagram — as distinct from
+Table geometry (fixed, regulation-defined) and Diagram content (Balls/Paths/Numbering labels,
+persisted). Overlays are **never persisted** — ephemeral editor session state only, reset each
+time the editor opens. Both render as separate components projected into `BilliardTableComponent`
+via its `<ng-content>` slot (it has no knowledge of either), reusing the Diamond Coordinate
+System's spacing math (10 units = 1 Diamond interval) rather than centimeters.
+
+**Grid** (Positioning Grid):
+Lines spanning the Playing Surface interior — horizontal, vertical, or both — at one or more
+simultaneous spacings, expressed in Diamond Coordinate System units (10 = a full Diamond
+interval, 5 = half, 1 = a tenth; any value is valid, not a closed set of presets). Configured via
+a `spacingUnits: number[]` list (e.g. `[10, 5]` shows diamond- and half-diamond-spaced lines
+together) plus shared `showHorizontalLines`/`showVerticalLines` booleans applying to all active
+spacings alike (not configurable per-spacing — revisit only if that proves genuinely limiting in
+practice). Intended groundwork for a future snapping mechanism in the Ball/Path editor, though
+snapping itself is not yet built.
+
+**Sub-Diamond**:
+An extra Diamond-styled dot marker along the Rail edges, at a finer spacing than the 28 real,
+regulation-fixed Diamonds — e.g. a marker every half-Diamond or every tenth. Visually similar to
+a real Diamond but **not** one — a Sub-Diamond has no regulation basis and exists purely as a
+positioning aid. Always rendered on all four edges together (no long/short-rail split, unlike the
+Grid's horizontal/vertical split) since a real Diamond itself has no such split either. A
+separate component from Grid, even though both are spacing-driven overlays — a consumer may want
+Sub-Diamond markers without Grid lines, or vice versa.
+_Avoid_: confusing with Diamond — a Diamond is a fixed, physical, regulation-defined mark; a
+Sub-Diamond is a synthetic, configurable, non-persisted editing aid.
