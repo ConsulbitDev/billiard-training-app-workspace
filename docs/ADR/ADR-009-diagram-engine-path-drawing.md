@@ -1,5 +1,12 @@
 # ADR-009: Diagram engine — Path drawing editor (fe#20)
 
+> **Superseded in part by `ADR-010`.** The "button-driven placeholders + drag" creation-UX
+> decision below (and "Add Bend" specifically) is replaced by a click-to-draw interaction before
+> `fe`#20 ever shipped — real usage during implementation surfaced the gap faster than expected.
+> Everything else in this ADR (the `Path` data model, no-duplicate-start-point decision, shared
+> drag-logic helper, post-hoc point dragging, `BallListComponent` placement) is unaffected and
+> still current.
+
 ## 📌 Context
 
 `fe`#20 lets a user give a Ball (`ADR-008`) a Path: a polyline from its start position to an end
