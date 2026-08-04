@@ -50,7 +50,11 @@ Resource subtype.
 **Path** (Diagram):
 A polyline (start point, zero or more bend points, end point) describing one ball's trajectory
 within a Diagram. Bend points represent bank/kick rail contacts. A ball with no Path is static
-(sits in place, e.g. as an obstacle) — Paths are optional per ball, not mandatory.
+(sits in place, e.g. as an obstacle) — Paths are optional per ball, not mandatory. A Path does
+not store its own start point — that's always the owning Ball's current position, read live, so
+dragging the Ball keeps the Path's start attached with no separate sync step. See ADR-009.
+_Avoid_: treating a Path's start point as independent, persisted data — it is always derived from
+`Ball.position`.
 
 **Cue Ball**:
 The ball the current player is shooting/striking with, in a given Diagram. Always white or
