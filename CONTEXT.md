@@ -161,9 +161,27 @@ Deliberately built in two stages. **v1 (in scope for the initial engine mileston
 per-Diagram number labels** — a Diagram can attach a plain number to any Diamond/Pin it
 references, entered by whoever authors that Diagram, with no reuse across Diagrams. This is what
 makes a `NUMBERING`-topology Shot's Diagram actually convey a system at all, so it isn't deferred
-entirely despite being simplified. **Deferred:** a reusable, named scheme (e.g. "the 3-diamond
-system") that multiple Diagrams could reference instead of each re-entering the same numbers —
-real complexity, correctly pushed past the initial milestone.
+entirely despite being simplified. A "system" in the sense a player means it (e.g. "the 50
+diamond system") maps onto a single Diagram here — different systems are simply different
+Diagrams, each with their own independently-entered numbers; there is no separate named-system
+entity in v1. **Deferred:** a reusable, named scheme that multiple Diagrams could reference
+instead of each re-entering the same numbers — real complexity, correctly pushed past the initial
+milestone.
+
+The numbered target is not limited to the 28 real, whole Diamonds — real systems commonly compute
+fractional aim points (half- or tenth-Diamond) via subtraction, so a Sub-Diamond position is
+numberable too (see Sub-Diamond). A number label's identity is its **position**, expressed in
+Diamond Coordinate System units (not cm) for consistency with how Ball/Path positions already
+persist — not an array index, since Diamond/Sub-Diamond positions are computed fresh each render
+with no stable id otherwise.
+
+In the editor, a label at a Sub-Diamond (fractional) position is only visible/editable while that
+Sub-Diamond spacing layer is toggled on (the layer is how an author reaches that position to
+click it — a whole-Diamond label has no such gating, since real Diamonds have no visibility
+toggle). The read-only Diagram view (`fe`#22, Shot Detail) has no spacing-toggle UI at all, so it
+auto-shows exactly the labels that exist, at whatever granularity, without needing the underlying
+dot markers to be drawn.
+
 _Consequence for persistence_: Diamond/Pin *positions* stay a static rendering constant (derived
 from Table geometry, not stored per-Diagram) — but Diamond/Pin *number labels* are per-Diagram
 data and must live in the Diagram JSON alongside Balls/Paths.
@@ -190,10 +208,18 @@ snapping itself is not yet built.
 **Sub-Diamond**:
 An extra Diamond-styled dot marker along the Rail edges, at a finer spacing than the 28 real,
 regulation-fixed Diamonds — e.g. a marker every half-Diamond or every tenth. Visually similar to
-a real Diamond but **not** one — a Sub-Diamond has no regulation basis and exists purely as a
-positioning aid. Always rendered on all four edges together (no long/short-rail split, unlike the
-Grid's horizontal/vertical split) since a real Diamond itself has no such split either. A
-separate component from Grid, even though both are spacing-driven overlays — a consumer may want
-Sub-Diamond markers without Grid lines, or vice versa.
+a real Diamond but **not** a physical, regulation-defined mark — a Sub-Diamond is a synthetic,
+configurable, toggleable overlay, and the marker/overlay itself is never persisted (ephemeral
+editor state, reset each time the editor opens, same as Grid). It is **not**, however, unrelated
+to the Numbering System: real aiming systems routinely compute fractional aim points (e.g. a
+subtraction landing on a half- or tenth-Diamond value), so a Sub-Diamond *position* is a
+legitimate Numbering System target, not merely a drawing aid — see Numbering System. What's
+persisted is the number label's value at that coordinate (Diagram content); the dot/overlay used
+to click that position while authoring is not. Always rendered on all four edges together (no
+long/short-rail split, unlike the Grid's horizontal/vertical split) since a real Diamond itself
+has no such split either. A separate component from Grid, even though both are spacing-driven
+overlays — a consumer may want Sub-Diamond markers without Grid lines, or vice versa.
 _Avoid_: confusing with Diamond — a Diamond is a fixed, physical, regulation-defined mark; a
-Sub-Diamond is a synthetic, configurable, non-persisted editing aid.
+Sub-Diamond is a synthetic, configurable overlay used to reach positions between Diamonds. Also
+avoid assuming Sub-Diamonds are irrelevant to Numbering just because the overlay itself isn't
+persisted — the *label placed at* a Sub-Diamond position is real, persisted Diagram data.
