@@ -55,6 +55,13 @@ not store its own start point — that's always the owning Ball's current positi
 dragging the Ball keeps the Path's start attached with no separate sync step. See ADR-009.
 _Avoid_: treating a Path's start point as independent, persisted data — it is always derived from
 `Ball.position`.
+A bend/end point may additionally be **anchored** to a Diamond it was aimed through (Diamond
+Aiming, `ADR-015`) — a permanent, persisted fact (not editor-session state), since it's part of
+what the point actually means, not an incidental coordinate. An anchored point's `x`/`y` is a
+*resolved* value, kept in sync (`resolvePath()`) whenever anything upstream in the same Path
+changes — the owning Ball moving, or an earlier point in the chain moving or being removed — so
+the point keeps tracking the Diamond it was aimed at rather than freezing at a stale coordinate.
+A point with no anchor is a plain free-placed point, unaffected by any of this.
 
 **Cue Ball**:
 The ball the current player is shooting/striking with, in a given Diagram. Always white or
@@ -133,6 +140,14 @@ Surface's length (284cm ÷ 8 = 35.5cm), including the corners. This gives **9 Di
 side, 5 per short side**. A Diamond's *position* is physical and fixed and defines the axes of
 the Diamond Coordinate System (below) — a Diamond's *number* under a given aiming system is a
 separate, per-Diagram concern (see Numbering System).
+_A Diamond's own position is not the same as where an aimed shot touches the Cushion_ — that's
+the **Cushion Contact Point**: where the **Aiming Ray** (the straight line from a Path segment's
+start point through the Diamond being sighted on) actually crosses the Cushion. The two coincide
+only for a straight, zero-angle shot; for any other start position they diverge, since the
+contact point depends on the ray's real geometry, not the Diamond's coordinate alone (e.g.
+aiming at Diamond 20 from an off-center start can touch the Cushion at 19, 18, or another value
+entirely, never 20). Diamond Aiming (`ADR-015`) computes this properly — an earlier, abandoned
+version of that feature wrongly assumed the two were always equal.
 
 **Diamond Coordinate System**:
 What a Ball's position and a Path's points actually store in the Diagram JSON — **not**

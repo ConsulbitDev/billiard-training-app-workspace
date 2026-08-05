@@ -1,0 +1,149 @@
+# ADR-015: Diamond Aiming for Path Drawing
+
+## 📌 Context
+
+Drawing a Path today (`ADR-010`'s click-to-draw mechanic) places a point wherever the cursor
+happens to be on the Playing Surface — free-form, no assistance. In real play, a Diamond is the
+actual reference point a player aims at ("aim for a 10" means aiming at Diamond 10), and a system
+Diagram (`NUMBERING` topology, `ADR-013`) is only as useful as how precisely its Paths actually
+point at the Diamonds it references. Free-hand mouse placement can't reliably land on the exact
+point a real aimed shot would touch the Cushion.
+
+**This ADR replaces an earlier, abandoned attempt (previously numbered ADR-015, "Diamond
+Snapping") that was never merged.** That version assumed a drawn point's Cushion contact value
+always equals the Diamond's own along-rail coordinate — i.e. "aiming at Diamond 20" always means
+the ball touches the Cushion at value 20. Live correction from the reporter (after two rounds of
+live-testing on the earlier version, and one dedicated grilling session) established that this is
+physically wrong except for a straight, zero-angle shot. The two are the same point only when the
+segment's start position lines up exactly opposite the Diamond; for any other start position, the
+real Cushion contact point is determined by the actual straight-line geometry of the shot, and
+will land at a different value — the earlier version's core assumption baked in an implicit
+"every shot is straight-across" simplification, which real bank/kick shots at an angle violate
+constantly.
+
+**Vocabulary, settled during grilling:**
+- **Diamond** — fixed, physical position on the Rail. Never moves; doesn't depend on the shot.
+- **Aiming Ray** — the straight line from wherever the current Path segment starts (the Ball's
+  own position, for the first segment; the previous bend point, for any later one) through the
+  Diamond being sighted on.
+- **Cushion Contact Point** — where that Aiming Ray actually crosses the Cushion (the Playing
+  Surface edge). This is the point that gets placed as the bend/end point. It depends on *both*
+  the segment's start point and which Diamond the ray is aimed through — the Diamond itself never
+  moves, only the Ray and its Cushion crossing do.
+
+**Round 2 addition — a Cushion Contact Point's dependency on its segment's start point cuts both
+ways.** The first round only computed the Cushion Contact Point once, at the moment a point was
+placed, then stored it as a plain coordinate — exactly like every other Point in this engine.
+Live testing surfaced the gap: repositioning the Ball afterward (or dragging an earlier bend
+point) left every later point frozen at its old Cushion coordinate, even though the *reason* that
+point was there — "aimed at Diamond X" — hadn't changed, only the Ray's start had. A point placed
+via Diamond Aiming isn't really "a coordinate that happened to result from a ray computation" —
+it's "aimed at Diamond X", full stop, and that fact needs to persist and keep being honored as
+everything upstream of it moves. Separately, dragging an already-placed marker had no Diamond
+Aiming applied at all in round 1 (an explicit accepted gap) — once a point could carry a
+permanent Diamond anchor, leaving drag as pure free movement became inconsistent: you could aim a
+point at a Diamond while drawing it, but never again once it existed.
+
+## 💡 Decision
+
+**Scope: the click-to-draw flow only** (`onDrawPointerMove`/`onDrawClick`/`onDrawDblClick` in
+`DiagramPathsComponent`) — same scope as the abandoned attempt. Dragging an already-placed
+end/bend marker, and Ball dragging, are both untouched.
+
+**Mechanism: real ray-cushion geometry, not a static per-Diamond projection.** A new pure
+`aimAtDiamond(cursorPoint, startPoint, radiusCm)` (`core/utils/diamond-aim.ts`) takes the
+segment's actual start point as a required input (unlike the abandoned version, which needed no
+such input — a direct symptom of its flawed model). For each of the 28 Diamonds, it computes the
+real Cushion Contact Point for a ray from `startPoint` through that Diamond (`rayExitPoint`, a
+standard AABB "ray exit" / slab-method computation against the radius-inset Playing Surface
+rectangle), then measures how close the already-on-Cushion cursor is to *that specific Diamond's*
+contact point. Within `DIAMOND_AIM_RADIUS_UNITS` of the nearest one, that Diamond's real contact
+point is what gets placed; otherwise the raw cursor position is used unchanged. This was a
+deliberate simplification over an angle-based "closest aiming direction" comparison floated
+during grilling — comparing cursor-to-contact-point distance reuses the exact same
+nearest-within-radius structure the abandoned version already had, needs no new plumbing for raw
+unclamped cursor coordinates, and was judged close enough in practice; verified live with a
+genuinely off-axis shot (Ball at Diamond Coordinate x=10, aiming near the Diamond at x=20) landing
+at x≈19.55, not 20 — confirming the fix actually changes behavior for angled shots, not just in
+the straight-across case the abandoned version also got right by accident.
+
+Because the start point now matters, `DiagramPathsComponent` had to start passing it explicitly at
+every call site — critically, `onDrawDblClick` must use the already-deduped `bendPoints` list (not
+the raw, still-duplicated `session.committedPoints`) to compute the correct start for the final
+segment. See `ADR-010` for why that dedup exists.
+
+**Highlight: the aimed-at Diamond's own marker changes fill/radius, no new visual element.**
+Unchanged in substance from the abandoned version's design — `DiagramPathsComponent` reports the
+matched Diamond's SVG position via a `snappedDiamondChanged` output (null when unmatched or
+disabled); the host forwards it to `BilliardTableComponent` (which already renders the Diamond
+markers) as a `highlightedDiamond` input, applying `.diamond--highlighted` (accent fill, ~1.5×
+radius) to the matching marker. This remains valuable — arguably more so now, since the placed
+point is often visibly *not* at the Diamond's own position, so confirming *which* Diamond you're
+sighted on matters more than ever.
+
+**Toggle and cursor:** unchanged from the abandoned version's design — right-click the drawing
+surface mid-session to toggle "Enable/Disable Diamond Aiming" (defaults enabled, ephemeral editor
+state, `ADR-011`'s host-builds-the-menu convention), and crosshair cursor across the whole table
+during an active drawing session (via the sandbox's existing `drawingRequest`/`session` signals).
+
+**Round 2 — the anchor is a permanent, persisted fact, not editor-session state.** A bend/end
+point's schema (`PathPoint`, `core/models/path.ts`) gains an optional `aimedDiamond: Point` (the
+Diamond's own SVG position) alongside its always-present resolved `x`/`y`. This was decided as a
+schema change now, deliberately, while it's nearly free: there's no real backend Diagram support
+yet (`be#72` isn't built; persistence is still the `fe#21` localStorage stub), so there's no
+production data to migrate. A point without `aimedDiamond` is a plain free-placed point, exactly
+as before — this is additive, not a breaking change to the wire format
+(`DiagramJson.balls[].path.points`, `ADR-012`).
+
+A new pure `resolvePath(ballPosition, path)` (`core/models/path.ts`) walks a Path's points in
+order, treating each resolved point as the next one's segment start — so it re-derives every
+anchored point's Cushion Contact Point in one pass, cascading correctly through a chain of
+multiple anchored points. It's called wherever something could invalidate an anchored point's
+segment start: the sandbox's `onBallMoved`, `onPathPointMoved` (dragging any marker), and
+`onBendRemoved` (removing a bend changes what the *next* point's start is). It reuses
+`cushionContactPointForDiamond` — the same single-Diamond ray-cast `aimAtDiamond` already used
+internally, now extracted so both call sites share one geometry implementation.
+
+**Dragging an already-placed end/bend marker now goes through Diamond Aiming too**, gated by the
+same `snapToDiamondsEnabled` toggle, using the same nearest-within-radius search — the accepted
+gap from round 1 is closed. The segment start for a dragged marker comes from the Ball's *current*
+Path data (`ball.path!.bendPoints`/`ball.position`), not from `session`, since dragging happens
+with no drawing session active — `DiagramPathsComponent`'s `segmentStart()`/`snapped()` helpers
+take the Ball's position as an explicit parameter for this reason, rather than reading
+`drawingBall()` (which returns `undefined` outside an active session).
+
+## 🔄 Consequences
+
+**Positive:**
+- No changes to `pointerToClampedDiamondPosition()` or its other two callers (ball drag,
+  marker-reposition drag) — zero regression risk to already-shipped, tested interactions.
+- `aimAtDiamond()` is a small, pure, independently-testable function; `diamond-aim.spec.ts`
+  includes both a straight-shot sanity case (contact point == Diamond value) and an explicitly
+  angled case (contact point != Diamond value, matching the reported bug) as a regression guard
+  against silently reintroducing the abandoned version's flawed assumption.
+- The context-menu toggle, cursor fix, and highlight all reuse existing patterns/state exactly —
+  no new architectural surface beyond `aimAtDiamond()` itself and the start-point plumbing it
+  requires.
+- `resolvePath()` is a small, pure, independently-testable function too; `path.spec.ts` includes a
+  dedicated cascading test (moving the Ball changes an aimed bend point, which changes what a
+  *later* aimed point resolves to) as a regression guard — the whole point of persisting the
+  anchor is that this cascade keeps working, not just the single-point case.
+- The `PathPoint` schema change is additive only — every existing reader of `bendPoints`/
+  `endPosition` as plain `{x,y}` keeps working unchanged, since `aimedDiamond` is optional and
+  nothing strips it.
+
+**Accepted gaps:**
+- Aiming doesn't extend to Sub-Diamond positions — deliberately out of scope. (Repositioning an
+  already-placed marker *is* now in scope, as of round 2 above.)
+- Proximity is distance-to-dynamic-contact-point, not angle-based — simpler and reuses a proven
+  pattern, but can behave less intuitively than angle comparison for very oblique shots near a
+  Diamond far from the segment's start. Not expected to matter in practice; revisit if it does.
+- The aim-enabled toggle remains sandbox-only ephemeral state — no per-Diagram persisted
+  preference, same as Grid/Sub-Diamond. (This is a different thing from the anchor itself, which
+  *is* persisted — the toggle just controls whether aiming assistance is offered while editing.)
+
+**Follow-up needed:**
+- None specific to this ADR. Pin Aiming (aiming at a numbered Pin rather than a Diamond) would
+  need its own treatment — Pins aren't on a rail, so "Cushion Contact Point for a ray through a
+  Pin" is a different, not-yet-solved geometry problem (a Pin sits *inside* the Playing Surface,
+  not beyond the Cushion, so the ray wouldn't necessarily exit through a Cushion edge at all).
