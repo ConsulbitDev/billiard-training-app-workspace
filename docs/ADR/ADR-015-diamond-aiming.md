@@ -142,6 +142,25 @@ steps using two different points. This needed raw-cursor plumbing through all fi
 `DiagramPathsComponent` (three drawing handlers, two drag handlers), since only the clamped
 position existed there before.
 
+**Round 5 — Diamond Aiming closes the Sub-Diamond gap accepted back in round 1.** With the
+tolerance now tied to each mark's own rendered radius, extending aiming to Sub-Diamond positions
+(half/tenth spacing, ADR-007) is no longer a separate design question — the same hit-test model
+already generalizes, it just needs a bigger candidate list. `aimAtDiamond()` now takes that list
+as an explicit `candidates: SubDiamondPosition[]` parameter instead of internally calling
+`getDiamondPositions()`, and each candidate hit-tests against its *own* `radiusCm` (a tenth-mark's
+tiny dot needs a tighter hover than a real Diamond's, exactly matching how it's actually drawn).
+`DiagramPathsComponent` builds this list via a new `aimablePositions` getter — real Diamonds plus
+whichever Sub-Diamond layers `subDiamondConfig` currently has enabled — mirroring
+`DiagramDiamondLabelsComponent`'s own `clickablePositions`, which already solved this exact
+"aim/click targets should match what's actually visible" problem for Diamond Numbering (`ADR-013`).
+The persisted schema needs no change: `PathPoint.aimedDiamond` is just a `Point`, indifferent to
+whether it came from a real Diamond or a Sub-Diamond, so an anchor to a half-diamond mark already
+persists and re-resolves correctly through the existing `resolvePath()`. The highlight extends too
+— `DiagramSubDiamondsComponent` gets its own `highlightedPosition` input, fed the same
+`highlightedDiamond` signal `BilliardTableComponent` already uses; since real-Diamond and
+Sub-Diamond positions never coincide, at most one of the two ever shows a highlight for a given
+match.
+
 ## 🔄 Consequences
 
 **Positive:**
@@ -161,10 +180,12 @@ position existed there before.
 - The `PathPoint` schema change is additive only — every existing reader of `bendPoints`/
   `endPosition` as plain `{x,y}` keeps working unchanged, since `aimedDiamond` is optional and
   nothing strips it.
+- Sub-Diamond support (round 5) needed zero schema or `resolvePath()` changes — the hit-test/
+  placement split from round 4 already generalized cleanly to "any candidate with a position and
+  a radius", and `aimablePositions` reuses `DiagramDiamondLabelsComponent`'s exact pattern rather
+  than inventing a new one.
 
 **Accepted gaps:**
-- Aiming doesn't extend to Sub-Diamond positions — deliberately out of scope. (Repositioning an
-  already-placed marker *is* now in scope, as of round 2 above.)
 - The aim-enabled toggle remains sandbox-only ephemeral state — no per-Diagram persisted
   preference, same as Grid/Sub-Diamond. (This is a different thing from the anchor itself, which
   *is* persisted — the toggle just controls whether aiming assistance is offered while editing.)
