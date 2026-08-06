@@ -161,6 +161,72 @@ persists and re-resolves correctly through the existing `resolvePath()`. The hig
 Sub-Diamond positions never coincide, at most one of the two ever shows a highlight for a given
 match.
 
+**Round 6 — dragging was never actually the problem; the affordance was.** Live feedback: "if I try
+to move the end point of the line, it moves along the cushion and I can't point to a diamond any
+longer." Round 2 already ran drag-to-reposition through the exact same `aimAtDiamond()` hit-test as
+click-to-draw — the aiming math itself was never broken for drag. The real gap was the *interaction
+affordance*: click-to-draw gives a live rubber-band preview and a crosshair cursor while you hunt
+for a ~1.2cm hit-test radius; a press-hold-drag gives neither, so the marker stays visually pinned
+near the Cushion for the whole gesture and only jumps once the raw cursor happens to land exactly on
+a Diamond, with no visual guidance getting you there. The fix removes the drag mechanic entirely:
+clicking an already-placed end/bend marker now starts the **same kind of session** click-to-draw
+already uses, scoped to that one point (`DrawingSession.repositioning`) — live preview, crosshair,
+a single commit click finalizes it via the existing `pathPointMoved` output and closes the session.
+There is no more `setPointerCapture` anywhere in `DiagramPathsComponent`; `capturePointer()`
+(`draggable-point.ts`) is now exclusive to Ball dragging (`DiagramBallsComponent`), which is
+untouched — Balls move freely on the Playing Surface and were never subject to Diamond Aiming.
+Repositioning a point that has segments *after* it keeps the tail attached rather than reopening it
+for redraw: the point's own commit is the only thing that changes, and every later anchored point in
+the chain re-cascades automatically via the existing `resolvePath()` (already wired to every
+`pathPointMoved` consumer since Round 2) — no new plumbing needed for this, it already worked this
+way for drag.
+
+**Round 6 — "the aiming line is always aiming to a Diamond" is now a hard invariant, not an
+assist — for bend points.** Grilled directly: free (non-Diamond) placement is removed for every
+bend, whether placed via a plain click-to-draw click or a `kind: 'bend'` reposition click. A bend
+commit that isn't currently aimed at a Diamond/Sub-Diamond is a no-op: the session simply stays
+open, previewing wherever the cursor currently clamps to (shown with a distinct dimmed/dashed
+style, `.path-line--preview-unaimed`), until the cursor lands on a mark. This is a real behavior
+change, not just a UX polish, so it's documented here rather than folded silently into Round 6's
+interaction fix.
+
+**Round 6 correction — the Path's *end* is exempt.** Live feedback caught an overreach in the
+above: "the final double click to end the polyline MUST remain even if it is not pointing to a
+diamond because the end of the polyline is a special case." A bend is by definition a rail contact
+— aiming at a Diamond is exactly what a bend *means*. A Path's end is different: it's wherever the
+ball actually ends up (potted, come to rest, resting against another ball) — there's no domain
+reason it has to land on a Diamond, and the earlier version wrongly applied the same mandatory-aim
+gate to it. Fixed: the `dblclick` that finalizes a draw/continue session, and a reposition click
+for a `kind: 'end'` ref, both commit unconditionally now — `endPosition`/the emitted point simply
+carries no `aimedDiamond` when the cursor wasn't over a mark. Bends remain mandatory; only the end
+is exempt.
+
+**Round 6 — mandatory aiming broke the click-pair dedup hack (ADR-010) in a provable, universal way,
+not just a rare geometric coincidence.** `onDrawDblClick` used to unconditionally strip the last 2
+`committedPoints` before finalizing, on the assumption that a native dblclick's two composing
+`click` events always append two near-duplicate points. Under mandatory aiming that assumption is
+now **always false once the first composing click succeeds**: that click's placement is, by
+construction, exactly on the Cushion boundary; the second composing click re-aims the exact same
+mark from that new position, which is a ray already sitting on its own exit edge — provably
+degenerate (`tExit <= 0`), so `onDrawClick`'s own aimedDiamond gate silently rejects it every time.
+At most one of the two composing clicks ever appends anything now, never both — a fixed
+`slice(0, -2)` would sometimes delete a real, unrelated preceding bend along with it (caught by a
+test with a real preceding bend before the final double-click; the simpler single-segment case
+happened to mask the bug, since `slice(0, -2)` on a committedPoints array of length ≤ 2 gives `[]`
+either way, whether 1 or 2 points were really appended). Fixed with a new `hitTestDiamond()` helper
+— the hit-test half of `aimAtDiamond()`, extracted so it's usable *without* a placement computation,
+since placement is exactly what could be degenerate here. `onDrawDblClick` now strips the trailing
+`committedPoint` only if it's actually a hit-test match for the mark the cursor is over right now,
+capped at exactly one.
+
+**The `snapToDiamondsEnabled` toggle (and its "Enable/Disable Diamond Aiming" context-menu
+item, `onDrawingSurfaceContextMenu`, `drawingSurfaceContextMenu` output) is removed entirely** — it
+contradicted the new invariant; aiming isn't optional to switch off anymore. **Pre-existing
+free-placed points are left exactly as-is** — this invariant is enforced only at the moment of a new
+commit, never retroactively; a legacy Path saved before this round keeps rendering/behaving
+unchanged until someone actually clicks one of its points to reposition it, at which point the new
+position (like any commit now) must land on a Diamond/Sub-Diamond.
+
 ## 🔄 Consequences
 
 **Positive:**
@@ -185,15 +251,30 @@ match.
   a radius", and `aimablePositions` reuses `DiagramDiamondLabelsComponent`'s exact pattern rather
   than inventing a new one.
 
-**Accepted gaps:**
-- The aim-enabled toggle remains sandbox-only ephemeral state — no per-Diagram persisted
-  preference, same as Grid/Sub-Diamond. (This is a different thing from the anchor itself, which
-  *is* persisted — the toggle just controls whether aiming assistance is offered while editing.)
+- Round 6's click-to-reposition mechanic needed no new geometry or schema at all — it reuses
+  `aimAtDiamond()`, `resolvePath()`, and the `pathPointMoved`/`pathSessionEnded` outputs exactly as
+  they already existed; only the *trigger* (click vs. drag) and the *commit gate* (must be aimed)
+  changed. `diagram-paths.component.spec.ts` drops the old drag-based tests (there is no drag left
+  to test) in favor of click-to-reposition tests, plus explicit reject-when-unaimed tests for both
+  drawing and repositioning.
 
-**Superseded (round 1–3, kept for history, no longer true):**
-- "Proximity is distance-to-dynamic-contact-point, not angle-based" — round 4 replaced this
-  entirely with a direct hit-test against the Diamond's own position; there is no longer a
+**Accepted gaps:**
+- None specific to the aiming toggle anymore — it's gone (Round 6). Sub-Diamond spacing layers
+  (`subDiamondConfig`) remain sandbox-only ephemeral state, same as Grid — a separate concern from
+  aiming itself (which layers are *visible to aim at*, not whether aiming happens at all).
+
+**Superseded (kept for history, no longer true):**
+- "Proximity is distance-to-dynamic-contact-point, not angle-based" (round 1–3) — round 4 replaced
+  this entirely with a direct hit-test against the Diamond's own position; there is no longer a
   distance-to-contact-point comparison anywhere in the trigger path.
+- "Dragging an already-placed end/bend marker" (round 1–5) — round 6 removed the drag mechanic
+  entirely in favor of click-to-reposition; there is no `setPointerCapture` left in
+  `DiagramPathsComponent`.
+- "A point without `aimedDiamond` is a plain free-placed point" as something a *new* commit can
+  still produce (round 1–5) — round 6 makes this impossible going forward for **bend** points; it
+  remains true for bends only as a description of data saved before round 6. A Path's **end**
+  point can still be freely placed today, by design (round 6 correction) — that was never
+  supposed to be prohibited, only bends.
 
 **Follow-up needed:**
 - None specific to this ADR. Pin Aiming (aiming at a numbered Pin rather than a Diamond) would

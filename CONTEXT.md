@@ -61,7 +61,18 @@ what the point actually means, not an incidental coordinate. An anchored point's
 *resolved* value, kept in sync (`resolvePath()`) whenever anything upstream in the same Path
 changes — the owning Ball moving, or an earlier point in the chain moving or being removed — so
 the point keeps tracking the Diamond it was aimed at rather than freezing at a stale coordinate.
-A point with no anchor is a plain free-placed point, unaffected by any of this.
+**Being anchored is mandatory for every newly-placed or newly-repositioned bend point** — "the
+aiming line is always aiming to a Diamond" (`ADR-015` Round 6): the editor refuses to commit a
+bend that isn't currently aimed at a Diamond or Sub-Diamond. A **bend** with no anchor is a plain
+free-placed point left over from before this invariant existed — it keeps working exactly as
+before until someone repositions it, at which point the new position must be anchored like any
+other bend commit.
+**The Path's end point is exempt from this invariant** — it's wherever the ball actually ends up
+(potted, come to rest, resting against another ball), not necessarily a rail contact the way a
+bend is, so it can always be freely placed, aimed or not. This is a deliberate, permanent
+exception, not a legacy-data allowance the way an unanchored bend is.
+_Avoid_: assuming a free-placed *bend* can still be created going forward — that's only ever true
+for data that predates `ADR-015` Round 6. A free-placed *end*, by contrast, is always valid.
 
 **Cue Ball**:
 The ball the current player is shooting/striking with, in a given Diagram. Always white or
