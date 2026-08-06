@@ -124,6 +124,24 @@ with no drawing session active — `DiagramPathsComponent`'s `segmentStart()`/`s
 take the Ball's position as an explicit parameter for this reason, rather than reading
 `drawingBall()` (which returns `undefined` outside an active session).
 
+**Round 4 — the proximity metric itself was measuring the wrong thing.** Every prior round
+compared the *clamped* cursor position against each Diamond's computed Cushion Contact Point — a
+metric that seemed reasonable but has a structural flaw: the clamped cursor can never actually
+reach a Diamond (it's always pulled back onto the Playing Surface, by design), so "distance to the
+contact point" is not the same question as "is the cursor over the Diamond". Live feedback caught
+this directly: a snap could fire while the mouse was visibly nowhere near the Diamond on screen,
+because the *contact point* — not the Diamond — happened to be close to wherever the clamped
+cursor was. The fix replaces the trigger with a literal hit-test: `aimAtDiamond()` now takes the
+**raw, unclamped** cursor position (`pointerToSvgPoint()`, new in `draggable-point.ts`) and
+compares it directly against each Diamond's own true SVG position, within `DIAMOND_AIM_RADIUS_CM`
+(simplified to just `DIAMOND_RADIUS_CM` now that the comparison happens in the same SVG space the
+Diamond is actually drawn in — no unit conversion needed). The *placement* step is unchanged: once
+a Diamond is hit, its real Cushion Contact Point (ray from the segment's start through that
+Diamond) is still what gets placed — the hit-test and the placement are deliberately two separate
+steps using two different points. This needed raw-cursor plumbing through all five call sites in
+`DiagramPathsComponent` (three drawing handlers, two drag handlers), since only the clamped
+position existed there before.
+
 ## 🔄 Consequences
 
 **Positive:**
@@ -147,12 +165,14 @@ take the Ball's position as an explicit parameter for this reason, rather than r
 **Accepted gaps:**
 - Aiming doesn't extend to Sub-Diamond positions — deliberately out of scope. (Repositioning an
   already-placed marker *is* now in scope, as of round 2 above.)
-- Proximity is distance-to-dynamic-contact-point, not angle-based — simpler and reuses a proven
-  pattern, but can behave less intuitively than angle comparison for very oblique shots near a
-  Diamond far from the segment's start. Not expected to matter in practice; revisit if it does.
 - The aim-enabled toggle remains sandbox-only ephemeral state — no per-Diagram persisted
   preference, same as Grid/Sub-Diamond. (This is a different thing from the anchor itself, which
   *is* persisted — the toggle just controls whether aiming assistance is offered while editing.)
+
+**Superseded (round 1–3, kept for history, no longer true):**
+- "Proximity is distance-to-dynamic-contact-point, not angle-based" — round 4 replaced this
+  entirely with a direct hit-test against the Diamond's own position; there is no longer a
+  distance-to-contact-point comparison anywhere in the trigger path.
 
 **Follow-up needed:**
 - None specific to this ADR. Pin Aiming (aiming at a numbered Pin rather than a Diamond) would
