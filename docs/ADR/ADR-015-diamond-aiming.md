@@ -67,6 +67,18 @@ genuinely off-axis shot (Ball at Diamond Coordinate x=10, aiming near the Diamon
 at x≈19.55, not 20 — confirming the fix actually changes behavior for angled shots, not just in
 the straight-across case the abandoned version also got right by accident.
 
+**Round 3 — the tolerance itself was wrong, not just generous.** `DIAMOND_AIM_RADIUS_UNITS` was
+initially set to 2 units (~7cm), deliberately wide, on the reasoning that a forgiving zone removes
+the need for pixel-precise aim. Live use found that reasoning backwards: a ~7cm catchment around
+Diamond 20 meant any cursor position within ~20% of a whole diamond interval snapped to 20,
+making it *impossible* to place a point at a nearby non-Diamond value like 19 while hovering
+anywhere near 20. The rule is now "the cursor's on-Cushion position intersects the Diamond's own
+rendered mark" — `DIAMOND_AIM_RADIUS_UNITS` derives from `DIAMOND_RADIUS_CM / CM_PER_DIAMOND_UNIT`
+(≈0.34 units, ≈1.2cm) instead of a hardcoded, independently-chosen number, so the tolerance always
+matches whatever size the Diamond is actually drawn at. The proximity *metric* itself (distance
+from cursor to each Diamond's dynamic Cushion Contact Point) is unchanged from round 1 — only the
+radius shrank.
+
 Because the start point now matters, `DiagramPathsComponent` had to start passing it explicitly at
 every call site — critically, `onDrawDblClick` must use the already-deduped `bendPoints` list (not
 the raw, still-duplicated `session.committedPoints`) to compute the correct start for the final
