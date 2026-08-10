@@ -112,6 +112,37 @@ Ball/Object Ball are player-owned, so only those two vary). Diameter is 61–61.
 official FIBiS regulation ("5 Birilli - 9 Birilli Goriziana - Tutti Doppi", in force from the
 2022/23 season) — validated, not a guess.
 
+**Hit** (Diagram):
+How the Cue Ball is struck and which part of the Object Ball it takes — the close-up inset drawn
+beside the table on instructional plates, showing two overlapping balls and a dot marking the cue
+tip's strike point. Holds a **Ball Portion** and an optional **Spin**. At most one per Diagram, and
+only where the Diagram has a Cue Ball, since an inset about striking the cue ball is meaningless
+without one. It carries no table position: unlike a Ball, a Hit says nothing about where anything
+sits on the Playing Surface, only how the two balls meet each other. Which colour is in front is
+*derived* from the Diagram's Cue Ball, never stored on the Hit — so "bring to front" means swapping
+which colour is the Cue Ball, not a display setting local to the inset. See `ADR-016`.
+_Avoid_: "Contact" (taken by **Cushion Contact Point**, which is a computed geometric consequence of
+a Path, not authored teaching content) and "Aiming" (taken by **Aiming Ray** / **Diamond Aiming**).
+
+**Ball Portion** (Hit):
+How much of the Object Ball the Cue Ball covers, and on which side — the fullness of the contact.
+Measured in eighths of the ball's **width**: 8/8 is a full ball, 4/8 a half ball, 1/8 a thin edge.
+Signed, where the sign is the side taken (negative left, positive right) from the shooter's view. A
+portion of zero is invalid — no contact is not a shot — and at 8/8 the sign carries no meaning,
+since a completely full hit has no side. Deliberately one-dimensional: both balls rest on the same
+cloth, so their centres are always level and only the across-the-ball offset can vary. See
+`ADR-016`.
+_Avoid_: treating it as a 2-D offset between the two balls — a vertical displacement between them
+depicts something that cannot physically occur.
+
+**Spin** (Hit) — *effetto*:
+Where the cue tip strikes the Cue Ball, as a 2-D offset from its centre, measured in eighths of the
+ball's **radius** (not its width — Ball Portion is a span across the ball, Spin is a displacement out
+from its centre; both are "eighths of the ball" as a player would say it, but anchored differently).
+Constrained only by the ball's own circumference: there is **no miscue limit**, because a Diagram is
+teaching content rather than a simulation. Optional, and its absence means "not specified" — never
+"struck centre", which is a different and stronger claim. See `ADR-016`.
+
 ## Table geometry
 
 Real-world dimensions and reference marks of the billiard table itself, as distinct from the
