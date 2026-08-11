@@ -90,7 +90,9 @@ which owns interaction and delegates all drawing to the `diagram-*` components. 
 renderer with no drag handling, and exactly one piece of code decides what a Hit looks like, so the
 read-only view cannot drift from the editable one. A single component behind a `readonly` flag was
 rejected: threading that flag through drag handlers and pointer state accumulates conditionals that
-are exercised in one mode and rot in the other.
+are exercised in one mode and rot in the other. **Amended by `ADR-018`**, which narrows this to
+stateful multi-mode gesture components: a single unconditional gesture behind an `interactive`
+capability is a different case and is allowed.
 
 ## 🔄 Consequences
 
