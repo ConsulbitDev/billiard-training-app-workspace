@@ -28,6 +28,7 @@ Each entry points to a full ADR file stored in [`docs/ADR/`](../ADR/).
 - 2026-08-05 – Add **Pin Numbering v1** (`schemaVersion` 3) – Same need as Diamonds, for the Castello – Parallel component reusing the Diamond mechanism, gated on speciality – [ADR-014](../ADR/ADR-014-pin-numbering-v1.md)
 - 2026-08-05 – Add **Diamond Aiming** for Path drawing – "Every shot is straight-across" is wrong for real bank/kick shots at an angle – Bend points anchor to the Diamond they were aimed through, and re-derive when the shot changes – [ADR-015](../ADR/ADR-015-diamond-aiming.md)
 - 2026-08-10 – Add the **Hit: Ball Portion and Spin** (`schemaVersion` 4) – The table drawing shows where the balls go, not how to play the shot – One optional Hit per Diagram; Cue Ball identity derived, never stored – [ADR-016](../ADR/ADR-016-hit-ball-portion-and-spin.md)
+- 2026-08-11 – Restructure a Diagram into ordered **Layers** (`schemaVersion` 5) – Teaching a shot needs where it ends and the routes there, not just where it starts – First breaking schema change: `balls` moves inside a Layer, and intermediate states become expressible – [ADR-017](../ADR/ADR-017-diagram-layers.md)
 
 ---
 

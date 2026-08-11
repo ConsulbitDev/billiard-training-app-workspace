@@ -112,6 +112,23 @@ Ball/Object Ball are player-owned, so only those two vary). Diameter is 61–61.
 official FIBiS regulation ("5 Birilli - 9 Birilli Goriziana - Tutti Doppi", in force from the
 2022/23 season) — validated, not a guess.
 
+**Layer** (Diagram):
+One state of the table within a Diagram: a full collection of Balls with their Paths. A Diagram
+holds an ordered list of them, and **the order is the chronology** — the first Layer is the table
+before the shot, the last is where the balls come to rest, and anything between is a mid-shot state
+(a carom passing through its first contact, for example). A Layer carries an optional `label` for
+the editor's Layer switcher; it is display only and never competes with order as the source of
+truth for sequence.
+A Layer's Balls are ordinary Balls, so the same physical ball appearing in two Layers is represented
+twice, independently — deliberately, since a starting ball and a resting ball are two marks doing
+different jobs and a reader must tell them apart at a glance. There is no reference between them:
+correspondence is carried by role and by position in the sequence. Nothing cross-validates one Layer
+against another. See `ADR-017`.
+_Avoid_: reading a Path's end point as "the ball's final position" — it is where one trajectory
+stops, which is a different claim and cannot express a ball that finishes somewhere without a drawn
+route. Also avoid treating Layers as a fixed start/end pair; the list is open precisely so
+intermediate states fit.
+
 **Hit** (Diagram):
 How the Cue Ball is struck and which part of the Object Ball it takes — the close-up inset drawn
 beside the table on instructional plates, showing two overlapping balls and a dot marking the cue
