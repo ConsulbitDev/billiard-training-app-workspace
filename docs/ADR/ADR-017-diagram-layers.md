@@ -102,7 +102,9 @@ the model leaves room for it, which a per-Layer structure does.
   can contradict the order, but it is implicit and must be stated wherever Layers are read.
 
 **Follow-up needed:**
-- Per-Layer appearance (outline, fill, dashes) — its own requirement, unblocked by this.
+- Per-Layer appearance (outline, fill, dashes) — its own requirement, unblocked by this. **Taken up
+  by `ADR-018`**, which gives appearance an owner (the Ball component); persisting it is that ADR's
+  own committed follow-up.
 - **`ADR-012`'s migration story is still unwritten, and this is the third bump to defer it.** Every
   version since v1 has been free because nothing was persisted. The first bump after real data
   exists will not be, and this one restructures rather than appends — the migration it would have
