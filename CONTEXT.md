@@ -6,6 +6,20 @@ no roadmap, no scratch notes. Scope/sequencing decisions live in `docs/ADR/`.
 
 ## Language
 
+**Shot**:
+The central catalogue entry: one billiards concept — a shot to play or a numbering scheme —
+usually extracted from a learning resource, and optionally illustrated by a Diagram. Reference
+content describing *the game*, shared rather than personal (ADR-019).
+_Avoid_: "System" as a second kind of entity — see Topology. Also avoid "shot" for a single
+attempt at the table during practice; that is a Practice Session's business, not a Shot.
+
+**Topology** (Shot):
+Which kind of thing a Shot is: a shot to play, or a numbering scheme. The distinction is an
+attribute of a Shot, not a separate entity — so "systems" and "shots" are one catalogue, filtered.
+See Numbering System for what a numbering-topology Shot's Diagram actually carries.
+_Avoid_: modelling "System" as its own type. The frontend's `systems` module name is historical
+and means "the catalogue", not "systems as opposed to shots".
+
 **V1**:
 The Knowledge Base Explorer + Admin scope defined in `PRD.md`: browse/filter/view shots,
 resources, comments, and admin CRUD for shots/categories/books/resources. Excludes
@@ -18,10 +32,12 @@ The future scope in `MICROSERVICE_ARCHITECTURE.md`: real Authentication, Trainin
 Service, and Statistics & Analytics Service. Not started; see ADR-003 for sequencing relative
 to V1.
 
-**Soft-deleted** (Shot):
-Hidden from all normal queries after deletion, with no restore path in the current milestone.
-A distinct, narrower mechanism from **Archived** — deliberately not the same field, so the
-future active/archived design isn't constrained by this decision. See ADR-003.
+**Soft-deleted** (Shot, Category, Book):
+Hidden from all normal queries after deletion, with no restore path in the current milestone,
+but never destroyed. Applies to anything another record refers to historically; entities owned by
+a parent (Comment, Resource) are deleted outright. A distinct, narrower mechanism from
+**Archived** — deliberately not the same field, so the future active/archived design isn't
+constrained by this decision. See ADR-003 and ADR-019.
 
 **Archived** (Shot):
 Not yet defined. Deferred to the milestone after this one — see ADR-003. Do not conflate with
@@ -159,6 +175,44 @@ from its centre; both are "eighths of the ball" as a player would say it, but an
 Constrained only by the ball's own circumference: there is **no miscue limit**, because a Diagram is
 teaching content rather than a simulation. Optional, and its absence means "not specified" — never
 "struck centre", which is a different and stronger claim. See `ADR-016`.
+
+## People and access
+
+Introduced by ADR-019. Only **Author** and **Practice Session** exist today; the rest are defined
+so the language is settled before the machinery arrives.
+
+**Author** (Shot):
+The single person or account a Shot belongs to — its provenance, and who may change it. Catalogue
+content is authored by the Platform Account; content drawn in the Diagram engine is authored by
+whoever drew it. Exactly one, always.
+_Avoid_: "owner" for who can *see* a Shot — that is an Access Grant, and being able to see
+something never confers the right to change it.
+
+**Platform Account**:
+The account that authors curated catalogue content, as opposed to a person's own creations. A real
+account with a role, not the absence of one.
+
+**Practice Session**:
+A record of practising: which Shots were drilled, how it went, and what the player noticed. Record
+content describing *a person*, therefore personal — the counterpart to a Shot's shared reference
+content, and the first data in this project that accumulates.
+_Avoid_: "training session" and "practice plan" as synonyms; the first is `MICROSERVICE_ARCHITECTURE.md`'s
+service name, the second is a `be`#12 phrase for something never designed.
+
+**Access Grant**:
+Permission for a principal — a user, a role, or a group such as a hall — to *see* a Shot. Many
+principals to many Shots. Never implies authorship or the right to modify.
+_Avoid_: "sharing" as a synonym; sharing is one thing that produces a grant.
+
+**Entitlement**:
+Which slice of the platform's catalogue a subscription plan unlocks. Gates discovery and access
+only — never the survival or readability of a Practice Session that references a Shot.
+_Avoid_: conflating with Visibility. Entitlement gates platform content downward by plan;
+Visibility opens personal content outward by choice. Opposite directions, different mechanisms.
+
+**Visibility** (Shot):
+Not yet defined. Whether a person's own Shot is private, shared or public. Deferred until there is
+a second person to share with — see ADR-019.
 
 ## Table geometry
 
