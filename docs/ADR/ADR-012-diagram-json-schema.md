@@ -100,3 +100,67 @@ explicitly picking Italiana or Goriziana as part of setup. The sandbox's `signal
   existing persisted Diagrams.
 - Define the new-Shot-creation flow's speciality picker (not yet designed) — this ADR only
   establishes that the field is required, not the UI for setting it.
+
+---
+
+## 📎 Amendment (2026-08-12): the version is frozen while the engine is pre-production
+
+**`schemaVersion` stays at 6 and does not move for further wire-format changes, until the Diagram
+engine carries real data.** This amends the cadence of incrementing it, and nothing else.
+
+### Why
+
+The follow-up above says to design migration handling "for existing persisted Diagrams". There have
+never been any. The version was bumped six times anyway — v2 for Diamond labels (`ADR-013`), v3 for
+Pin labels (`ADR-014`), v4 for the Hit (`ADR-016`), v5 for Layers (`ADR-017`), v6 for Ball
+appearance (`fe`#84) — and **every one of those numbers describes an empty population**. No document
+has ever been written in any of them. `fe`#84 verified this rather than assuming it: the
+`shots.diagram` column arrived with the backend's `V9` migration on 2026-08-07, there is no
+deployment, and the development database predates the column.
+
+The cost of the ritual is not the bumping. It is that six minted version numbers imply a five-link
+migration chain, and a reader — or an agent — encountering `DIAGRAM_SCHEMA_VERSION = 6` alongside an
+undesigned migration story reasonably concludes that a debt has been dodged five times and is now
+overdue. It has not been dodged. **The trigger condition was never met.** Writing that chain would
+produce code whose every branch is unreachable, to convert documents that do not exist.
+
+There is a second, worse property of waiting for the deferred trigger to fire on its own: the
+condition it waits for — the first real saved Diagram — is the same moment that makes the work
+unavoidable. There is no interval in which you are told you need it while it is still free. Hence a
+named trigger below rather than a condition to be noticed later.
+
+### The policy
+
+- **During development the Diagram wire format is unstable and effectively unversioned.** Change the
+  shape freely, in either direction, additive or not. Do not bump.
+- **The number stays 6.** Not reset to 1: resetting costs a code change, makes this ADR's documented
+  v1 shape disagree with what the code would then write as v1, and buys nothing. Only the value that
+  real data is first written with matters, and 6 is as good a starting number as any. A `0` or
+  SNAPSHOT-style sentinel is not available — the backend's `DiagramJsonMapper` requires a positive
+  integer, and changing that to express a temporary development state is not worth a backend release.
+- **Everything else in this ADR stands.** The field remains required. Loading still enforces the
+  version exactly and still fails loudly on a value it does not recognise. The mechanism is intact
+  and untouched; only the cadence of incrementing it changes.
+
+### The trigger
+
+**When the scanned images start being ported into Diagrams, this policy ends.** That is the point at
+which Diagrams stop being test fixtures and become content someone would be upset to lose.
+
+At that moment: freeze whatever shape is current as the first real version, bump it deliberately,
+and from then on **every** wire-format change bumps — and the first such bump is the one that must
+carry the migration handling this ADR originally deferred. That migration is owed to real documents,
+not to v1 through v6.
+
+Until then the only Diagrams that exist are the author's own tests, which are disposable by
+definition.
+
+### Accepted cost
+
+**A stale local Diagram now misparses silently instead of failing loudly.** If a shape changes
+without a bump, a document saved before the change still declares version 6 and will be read as
+though it matched. During development that is the right trade — the remedy is to discard the
+document and redraw it, which is what test data is for.
+
+**It is precisely the wrong trade after the trigger fires**, and that asymmetry is the whole reason
+the trigger is written down here rather than left to judgement.
