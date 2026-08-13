@@ -28,9 +28,19 @@ _Avoid_: "MVP" as a synonym — it has been used loosely for both V1 and V2-scop
 (e.g. Practice Sessions) in some docs, which is exactly the ambiguity ADR-003 resolves.
 
 **V2**:
-The future scope in `MICROSERVICE_ARCHITECTURE.md`: real Authentication, Training Session
-Service, and Statistics & Analytics Service. Not started; see ADR-003 for sequencing relative
-to V1.
+**Consultation on mobile** — making the Knowledge Base good on the device the app is actually used
+on. Scoped by ADR-021 through **Consultation** and **Authoring** (see "Screens and surfaces"): the
+screens for reading the catalogue work everywhere, the screens for changing it stay desktop-shaped.
+_Avoid_: the older meaning. Until ADR-021 this word meant Authentication + Training Sessions +
+Statistics; that scope is now **V3**. A document using "V2" for auth or sessions predates the
+renumber.
+
+**V3**:
+Real Authentication, Training Sessions, and Statistics — the scope ADR-003 and
+`MICROSERVICE_ARCHITECTURE.md` originally called V2, renumbered by ADR-021 when consultation on
+mobile was inserted ahead of it. Not started.
+_Avoid_: reading the renumber as a reordering of ADR-003's argument. ADR-003 required V1 to close
+before this work began, and it does; ADR-021 inserted a milestone rather than reopening one.
 
 **Soft-deleted** (Shot, Category, Book):
 Hidden from all normal queries after deletion, with no restore path in the current milestone,
@@ -359,3 +369,33 @@ _Avoid_: confusing with Diamond — a Diamond is a fixed, physical, regulation-d
 Sub-Diamond is a synthetic, configurable overlay used to reach positions between Diamonds. Also
 avoid assuming Sub-Diamonds are irrelevant to Numbering just because the overlay itself isn't
 persisted — the *label placed at* a Sub-Diamond position is real, persisted Diagram data.
+
+## Screens and surfaces
+
+Introduced by ADR-021, which uses the first two to scope the V2 milestone.
+
+**Consultation** (screen):
+A screen whose purpose is to *read* the Knowledge Base — the Shot list and its filters, Shot Detail,
+the Resource viewer, and the read-only Diagram view. Consultation **works everywhere**, phone
+included, because the phone is the device the app is actually used on.
+_Avoid_: reading this as a permission. It describes what a screen is **for**, never what a person is
+allowed to do on it. There is no viewport check in the code and nothing is hidden or disabled on a
+small screen — see Authoring.
+
+**Authoring** (screen):
+A screen whose purpose is to *change* the Knowledge Base — the Shot form, the Diagram and Hit
+editors, the comment composer, the Resource editor, and the Category/Book admin screens. Authoring is
+**desktop-shaped**: it stays fully reachable and fully functional at any size, and simply does not
+receive responsive attention (ADR-021).
+_Avoid_: treating it as a mode, a flag, or a device class. Enforcing it by viewport was considered
+and rejected — a tablet with a keyboard is a genuine authoring device, and the first wrong guess
+locks an author out of fixing a typo on their own machine. Also avoid assuming the two never mix: a
+Consultation screen can contain an Authoring control (Shot Detail holds the comment composer), and
+that control still works.
+
+**Dashboard**:
+**Reserved, not yet built.** The V3 statistics screen — practice history and aggregates (`PRD.md`,
+ADR-003). It does not exist.
+_Avoid_: using the word for the application shell. The shell — toolbar, navigation drawer and
+`<router-outlet>` — was called `DashboardComponent` until ADR-021 renamed it, which had already
+produced a `/dashboard` route rendering a second complete shell inside the first one's outlet.
