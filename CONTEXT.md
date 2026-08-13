@@ -40,10 +40,18 @@ a parent (Comment, Resource) are deleted outright. A distinct, narrower mechanis
 constrained by this decision. See ADR-003 and ADR-019.
 
 **Archived** (Shot):
-Not yet defined. Deferred to the milestone after this one — see ADR-003. Do not conflate with
-Soft-deleted above.
-_Avoid_: using "archived" or "soft-delete" interchangeably — they will very likely end up as
-two different fields/behaviors.
+**Does not exist, and is not planned** (`ADR-020`). The term is kept here only so that the warning
+below survives, and so a reader who meets it in an old document knows it was decided against rather
+than forgotten. There is no `status` field on Shot and no ticket for one.
+
+It was dropped because nothing ever stated what it would do: `ADR-003` traced it to the PRD's
+original data model, and the PRD has no such field. What it might have covered is already owned —
+taking a Shot out of the catalogue is **Soft-deleted** above, and "not working on this right now" is
+what **Priority** (`NOT_NEEDED`, `NICE_TO_HAVE`) already says. Reopened only by a second person using
+the app, or by a catalogue large enough that filtering stops finding things.
+_Avoid_: using "archived" or "soft-delete" interchangeably — the whole reason the two were kept
+separate was to leave this design open, and it is now closed the other way. Soft-delete did **not**
+absorb archiving; it still means only what it means.
 
 **Diagram**:
 The structured, coordinate-based representation of a Shot's balls and their paths, as JSON,
