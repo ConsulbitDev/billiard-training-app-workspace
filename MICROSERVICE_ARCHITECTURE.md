@@ -3,7 +3,8 @@
 **Version**: 1.0
 **Date**: 2026-03-13
 **Status**: Design Phase
-**Scope**: V2+ Future Evolution
+**Scope**: V3+ Future Evolution
+**Renumbered**: ADR-021 inserted "consultation on mobile" as V2, so the scope this document describes — Authentication, Training Sessions, Statistics — is now V3+.
 
 ---
 
@@ -40,7 +41,7 @@ Monolithic Backend (Spring Boot)
 └── (Authentication - stubbed)
 ```
 
-### Future State (V2+)
+### Future State (V3+)
 ```
 API Gateway / Load Balancer
 ├── Billiard Backend (Shot Knowledge)
@@ -850,15 +851,15 @@ Store:      [Event: PlayerCreated(..),
              Event: SkillLevelInferred(newLevel=INTERMEDIATE)]
 ```
 
-**Current Phase**: Not required for V2, but design with this in mind
+**Current Phase**: Not required for V3, but design with this in mind
 
-### Recommendation for V2
+### Recommendation for V3
 
 Use **Event-based Choreography** with message log (Kafka):
 - Simple to implement
 - Services remain decoupled
 - Kafka handles durability/replay
-- Add orchestration in V3 if needed
+- Add orchestration later if needed
 
 ---
 
